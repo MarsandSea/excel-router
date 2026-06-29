@@ -1,0 +1,35 @@
+# 打包产物
+dist/
+build/
+*.spec
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# 用户配置（不上传，每个用户自己的设置）
+config/user_config.json
+user_config.json
+
+# PyArmor 产物
+.pyarmor/
+pyarmor_runtime*/
+
+# 日志
+*.log
+log_*.txt
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Claude Code 本地设置（个人，不上传）
+.claude/settings.local.json
+
+# 真实业务数据 / 个人工作文件（含个人信息，绝不上传）
+upload/
+拆分网格及人员脚本v35.txt

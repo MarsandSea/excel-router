@@ -1,0 +1,20 @@
+{
+  "input_path": "",
+  "output_path": "",
+  "header_mode": "auto",
+  "header_row": 1,
+  "grid_keys": [],
+  "id_keys": [],
+  "split_column": "",
+  "selected_values": [],
+  "person_column": "",
+  "to_person": false,
+  "person_file_filter": [],
+  "value_alias_map": {},
+  "skip_values": ["合计", "小计", "总计", "平均", ""],
+  "merge_across_files": true,
+  "make_zip": true,
+  "exact_match": true,
+  "preserve_format": true,
+  "auto_open_output": true
+}

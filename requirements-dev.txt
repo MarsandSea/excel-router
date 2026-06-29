@@ -1,0 +1,4 @@
+# 开发/测试依赖（运行工具本身不需要，跑测试与打包才需要）
+-r requirements.txt
+pytest>=7.0
+pyinstaller>=6.0
