@@ -6,7 +6,7 @@
 > Split a batch of Excel files by the values of any column, preserving the
 > original header formatting. Auto header detection, cross-file merge, no coding.
 >
-> 作者 / Author：Leo · 觉得好用请点 ⭐ Star！
+> 作者 / Author：Abelin · 觉得好用请点 ⭐ Star！
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
@@ -132,4 +132,4 @@ excel_splitter/
 
 ## 👤 作者 / Author
 
-**Leo** · 有问题欢迎提 [Issue](../../issues)
+**Abelin** · 有问题欢迎提 [Issue](../../issues)

@@ -2,7 +2,7 @@
 chcp 65001 >nul
 REM ============================================================
 REM Excel 通用拆分工具 - 一键打包脚本 (Windows)
-REM Copyright (c) 2025 Leo
+REM Copyright (c) 2026 Abelin
 REM ============================================================
 REM 关键：--collect-all customtkinter 必须有！
 REM 否则打包出的 exe 会因找不到 customtkinter 的主题/字体资源而启动崩溃。

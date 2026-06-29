@@ -8,7 +8,7 @@ Excel 通用拆分工具 - 图形界面
 
 网格汇总与到人是同一次运行的两个产出。拆分在子线程里跑，self.after(0, ...) 回主线程更新 UI。
 
-Copyright (c) 2025 Leo
+Copyright (c) 2026 Abelin
 MIT License
 """
 
@@ -109,7 +109,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(self, text="Excel 通用拆分工具",
                      font=ctk.CTkFont(size=20, weight="bold")).grid(
             row=0, column=0, pady=(16, 0), padx=20, sticky="w")
-        ctk.CTkLabel(self, text="选一列，把 Excel 拆成多个文件 · 保留原格式 · Copyright © 2025 Leo · MIT",
+        ctk.CTkLabel(self, text="选一列，把 Excel 拆成多个文件 · 保留原格式 · Copyright © 2026 Abelin · MIT",
                      font=ctk.CTkFont(size=11), text_color="gray").grid(
             row=1, column=0, padx=20, sticky="w")
 

@@ -5,7 +5,7 @@
 会在 examples/ 下生成两个样本文件，两者都含「销售部」——
 拿它们试跑「按『部门』拆分 + 跨文件合并」，能直观看到两个表的销售部被合并到同一个文件。
 
-Copyright (c) 2025 Leo
+Copyright (c) 2026 Abelin
 MIT License
 """
 import os
