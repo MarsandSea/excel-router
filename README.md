@@ -36,12 +36,15 @@
 
 ---
 
-## 🖼️ 界面截图 / Screenshot
+## 🖼️ 演示截图 / Screenshots
 
-> ⬇️ 运行后请补一张截图到 `docs/screenshot.png`（有截图的项目 Star 明显更多）。
-> 录制 GIF 演示「选列 → 拆分」效果更佳。
+**数据源（3 行复杂表头——大标题 / 分组标签 / 列名，工具自动识别表头行）**
 
-![screenshot](docs/screenshot.png)
+![数据源示例](docs/screenshot_source.jpg)
+
+**拆分结果（按区域自动分组，每组含汇总 + 到人，整包 ZIP 可直接发负责人）**
+
+![输出结果示例](docs/screenshot_output.jpg)
 
 ---
 
@@ -61,11 +64,12 @@
 想试一下？仓库自带样本：
 
 ```bash
-python examples/make_sample.py   # 生成 examples/sample_团队A.xlsx、sample_团队B.xlsx
+python examples/make_sample.py   # 生成 5 个月份的虚拟员工明细（1月A分公司明细.xlsx … 5月A分公司明细.xlsx）
 ```
 
-用工具的「简单」模式，输入文件夹选 `examples/`，主拆分列选「部门」，开始处理——
-打开结果里的 `销售部.xlsx`，会看到 A、B 两个表的销售部已**合并**在一起。
+用工具的「文件夹」模式，输入选 `examples/`，主拆分列选「所属部门」，开启「到人」，
+开始处理——每个部门的 5 个月数据自动**跨文件合并**，同时产出按员工姓名细分的个人文件，
+整体打包成 ZIP 可直接发给对应负责人。
 
 ### 难度分档 / Levels
 

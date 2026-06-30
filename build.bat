@@ -17,12 +17,12 @@ echo.
 echo [2/3] 清理旧的打包产物...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
-if exist "Excel通用拆分工具v2.0.spec" del "Excel通用拆分工具v2.0.spec"
+if exist "Excel通用拆分工具v2.1.spec" del "Excel通用拆分工具v2.1.spec"
 
 echo.
 echo [3/3] 开始打包...
 pyinstaller --onefile --noconsole ^
-  --name "Excel通用拆分工具v2.0" ^
+  --name "Excel通用拆分工具v2.1" ^
   --icon app.ico ^
   --version-file version.txt ^
   --collect-all customtkinter ^
@@ -30,9 +30,9 @@ pyinstaller --onefile --noconsole ^
   main.py
 
 echo.
-if exist "dist\Excel通用拆分工具v2.0.exe" (
+if exist "dist\Excel通用拆分工具v2.1.exe" (
     echo ============================================================
-    echo  打包成功！exe 位置：dist\Excel通用拆分工具v2.0.exe
+    echo  打包成功！exe 位置：dist\Excel通用拆分工具v2.1.exe
     echo ============================================================
 ) else (
     echo  打包失败，请检查上方错误信息。

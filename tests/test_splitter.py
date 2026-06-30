@@ -8,6 +8,7 @@ import pytest
 from core.splitter import (
     detect_header_row_auto, find_header_row, resolve_header_row,
     list_columns, list_values, run_split,
+    _dedupe_path, _safe_sheet_title,
 )
 
 
@@ -204,3 +205,92 @@ def test_value_alias_map(tmp_path):
     merged = os.path.join(res, "销售.xlsx")
     assert os.path.exists(merged)
     assert _count_rows(merged) == 2                   # 两个别名归并成一组
+
+
+# ---------- 对抗式审查回归用例 ----------
+
+def _make_book_custom(path, headers, rows, title="报表", sheet="Sheet1"):
+    """可指定列头/行/sheet 名的样本（表头在第2行）。"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet
+    ws["A1"] = title
+    for c, h in enumerate(headers, 1):
+        ws.cell(row=2, column=c, value=h)
+    for i, r in enumerate(rows, start=3):
+        for c, v in enumerate(r, 1):
+            ws.cell(row=i, column=c, value=v)
+    wb.save(path)
+
+
+def test_filename_collision_no_overwrite(tmp_path):
+    """F1：两个净化后同名（销售_部）但不同的取值不能互相覆盖。"""
+    import glob
+    inp = tmp_path / "in"; out = tmp_path / "out"
+    inp.mkdir(); out.mkdir()
+    _make_book_custom(inp / "X.xlsx", HEADERS, [
+        ["001", "张三", "销售/部", "北京", 100],
+        ["002", "李四", "销售/部", "北京", 200],
+        ["003", "王五", "销售:部", "上海", 150],   # 净化后同为「销售_部」
+    ])
+    res = run_split(_base_cfg(str(inp / "X.xlsx"), str(out)), log_fn=lambda m: None)
+    files = glob.glob(os.path.join(res, "销售_部*.xlsx"))
+    assert len(files) == 2, files                       # 两份并存（销售_部.xlsx + 销售_部(2).xlsx）
+    assert sum(_count_rows(f) for f in files) == 3       # 3 行数据一行不丢
+
+
+def test_skip_leftover_temp_file(two_books):
+    """F2：旧版可能残留在输入目录的 *__tmp__.xlsx 不应被当成正式输入处理。"""
+    inp, out = two_books
+    _make_book_custom(os.path.join(inp, "ghost__tmp__.xlsx"), HEADERS, [
+        ["009", "幽灵", "幽灵部", "火星", 999],
+    ])
+    res = run_split(_base_cfg(inp, out), log_fn=lambda m: None)
+    assert not os.path.exists(os.path.join(res, "幽灵部.xlsx"))   # 残留临时文件被跳过
+    assert os.path.exists(os.path.join(res, "销售部.xlsx"))       # 正常文件照常处理
+
+
+def test_column_mismatch_warns(tmp_path):
+    """F7：同一取值跨文件合并、列数不一致时给出预警（不阻断）。"""
+    inp = tmp_path / "in"; out = tmp_path / "out"
+    inp.mkdir(); out.mkdir()
+    _make_book_custom(inp / "A.xlsx", HEADERS, [["001", "张三", "销售部", "北京", 100]])
+    _make_book_custom(inp / "B.xlsx", HEADERS + ["备注"],
+                      [["002", "李四", "销售部", "上海", 200, "x"]])      # 多一列
+    logs = []
+    run_split(_base_cfg(str(inp), str(out)), log_fn=logs.append)
+    assert any("列数" in m for m in logs), logs
+
+
+def test_zip_bundles_summary_with_person(two_books):
+    """F5：merge=True + 到人 时，每个分组的 ZIP 内应同时含『汇总』与『到人』。"""
+    import zipfile
+    inp, out = two_books
+    res = run_split(_base_cfg(inp, out, to_person=True, person_column="姓名"),
+                    log_fn=lambda m: None)   # merge 默认 True → 汇总走扁平文件
+    zpath = os.path.join(res, "销售部.zip")
+    assert os.path.exists(zpath)
+    names = [n.replace("\\", "/") for n in zipfile.ZipFile(zpath).namelist()]
+    assert any(n.startswith("汇总/") and n.endswith("销售部.xlsx") for n in names), names   # 汇总进包
+    assert any(n.startswith("到人/") and n.endswith("张三.xlsx") for n in names), names      # 到人也在包里
+
+
+def test_dedupe_path_helper():
+    """F1 工具：撞名时追加 (2)/(3)... 后缀。"""
+    base = os.path.join("out", "a.xlsx")
+    used = set()
+    p1 = _dedupe_path(base, used)
+    used.add(os.path.normcase(os.path.abspath(p1)))
+    p2 = _dedupe_path(base, used)
+    assert os.path.basename(p1) == "a.xlsx"
+    assert os.path.basename(p2) == "a(2).xlsx"
+
+
+def test_safe_sheet_title_helper():
+    """F3 工具：非法字符替换、超长截断、重名去重。"""
+    used = set()
+    assert _safe_sheet_title("数据:报表*1", used) == "数据_报表_1"
+    assert len(_safe_sheet_title("标" * 40, used)) <= 31
+    used2 = set()
+    assert _safe_sheet_title("X", used2) == "X"
+    assert _safe_sheet_title("X", used2) == "X(2)"

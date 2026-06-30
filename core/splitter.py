@@ -35,7 +35,9 @@ MIT License
 """
 
 import os
+import re
 import shutil
+import tempfile
 import warnings
 import datetime
 from copy import copy
@@ -176,7 +178,9 @@ def normalize_to_xlsx(file_path, log_fn=None):
     if not file_path.lower().endswith('.xls'):
         return file_path, False
 
-    tmp_path = file_path + "__tmp__.xlsx"
+    # 临时文件写到系统临时目录（而非源文件同目录），避免残留被下次运行的 os.walk 重复处理。
+    fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.close(fd)
     try:
         dfs = pd.read_excel(file_path, sheet_name=None, header=None, engine='xlrd')
         with pd.ExcelWriter(tmp_path, engine='openpyxl') as w:
@@ -186,6 +190,11 @@ def normalize_to_xlsx(file_path, log_fn=None):
             log_fn("  ⚙️ xls 已转换为 xlsx 处理")
         return tmp_path, True
     except Exception as e:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
         if log_fn:
             log_fn(f"  ⚠️ xls 转换失败：{e}")
         return file_path, False
@@ -330,25 +339,68 @@ def _write_header(ws_out, header_cells, merges, widths):
 
 
 # =====================================================
+# 文件名 / sheet 名去重与净化
+# =====================================================
+
+_INVALID_SHEET_CHARS = re.compile(r'[\[\]:*?/\\]')
+
+
+def _safe_sheet_title(name, used_titles):
+    """把任意 sheet 名转成合法且在本工作簿内唯一的 Excel sheet 标题。
+
+    Excel 规则：禁止 [ ] : * ? / \\，不能为空，最长 31 字符，且不能重复。
+    used_titles 收集已用的小写标题；重名时在末尾追加 (2)/(3)... 并保证不超 31 字符。
+    """
+    t = _INVALID_SHEET_CHARS.sub('_', soft_clean(name))[:31] or "Sheet"
+    base = t
+    i = 2
+    while t.lower() in used_titles:
+        suffix = f"({i})"
+        t = base[:31 - len(suffix)] + suffix
+        i += 1
+    used_titles.add(t.lower())
+    return t
+
+
+def _dedupe_path(save_path, used_paths):
+    """若目标路径已被占用，则在扩展名前追加 (2)/(3)... 直到不冲突。
+
+    用于避免「两个不同取值净化后同名 → 同一 save_path → 后者覆盖前者」的数据丢失。
+    used_paths 是已占用路径的规范化集合（os.path.normcase + abspath）。
+    """
+    norm = os.path.normcase(os.path.abspath(save_path))
+    if norm not in used_paths:
+        return save_path
+    root, ext = os.path.splitext(save_path)
+    i = 2
+    while True:
+        cand = f"{root}({i}){ext}"
+        if os.path.normcase(os.path.abspath(cand)) not in used_paths:
+            return cand
+        i += 1
+
+
+# =====================================================
 # 输出工作簿（按取值在内存中累积，最后统一保存）
 # =====================================================
 
 class _OutputBook:
     """一个输出文件对应的内存工作簿，支持跨源文件追加。"""
 
-    __slots__ = ('save_path', 'wb', 'sheets')
+    __slots__ = ('save_path', 'wb', 'sheets', '_used_titles')
 
     def __init__(self, save_path):
         self.save_path = save_path
         self.wb = Workbook()
         self.wb.remove(self.wb.active)
-        self.sheets = {}   # sheet_name -> {'ws':, 'next_row':}
+        self.sheets = {}        # sheet_name -> {'ws':, 'next_row':, 'ncols':}
+        self._used_titles = set()
 
     def get_or_create_sheet(self, sheet_name, h_idx, header_cells, merges, widths):
         """取得（或首次建立并写入表头的）输出 sheet 信息。"""
         info = self.sheets.get(sheet_name)
         if info is None:
-            ws = self.wb.create_sheet(title=sheet_name[:31])
+            ws = self.wb.create_sheet(title=_safe_sheet_title(sheet_name, self._used_titles))
             _write_header(ws, header_cells, merges, widths)
             info = {'ws': ws, 'next_row': h_idx + 1}
             self.sheets[sheet_name] = info
@@ -465,123 +517,129 @@ def process_file(file_path, rel_path, output_root, config, outputs,
     out_base = (base_name[:-4] + ".xlsx") if is_tmp else base_name
     src_stem = safe_filename(os.path.splitext(out_base)[0], "source")
 
-    if not is_tmp and detect_uncalculated_formulas(work_path):
-        if log_fn:
-            log_fn("  ⚠️ 注意：该文件含未计算的公式，相关列可能为空白，"
-                   "建议用 Excel 打开另存后再处理")
-    preserve_ok = preserve_format and not is_tmp
-    if preserve_format and is_tmp and log_fn:
-        log_fn("  ⚠️ .xls 转换后无法保留原始格式（仅保留数据，表头格式也会丢失）")
-
-    # ---------- 读数据 ----------
-    try:
-        df_dict = pd.read_excel(work_path, sheet_name=None, header=None, engine='openpyxl')
-    except Exception as e:
-        if log_fn:
-            log_fn(f"  ❌ 读取失败：{e}")
-        if is_tmp and os.path.exists(work_path):
-            os.remove(work_path)
-        return 0
-
-    # ---------- 逐 sheet 识别表头 ----------
-    sheet_headers = {}
-    for sn, df in df_dict.items():
-        h = resolve_header_row(df.values[:20].tolist(), config)
-        if h != -1 and h <= len(df):
-            sheet_headers[sn] = h
-    if not sheet_headers:
-        if log_fn:
-            log_fn("  ⚠️ 未找到有效表头，跳过")
-        if is_tmp and os.path.exists(work_path):
-            os.remove(work_path)
-        return 0
-
-    # ---------- 读表头格式（一次性打开源工作簿） ----------
     wb_src = None
-    header_meta = {}
     try:
-        wb_src = openpyxl.load_workbook(work_path, read_only=False, data_only=True)
+        if not is_tmp and detect_uncalculated_formulas(work_path):
+            if log_fn:
+                log_fn("  ⚠️ 注意：该文件含未计算的公式，相关列可能为空白，"
+                       "建议用 Excel 打开另存后再处理")
+        preserve_ok = preserve_format and not is_tmp
+        if preserve_format and is_tmp and log_fn:
+            log_fn("  ⚠️ .xls 转换后无法保留原始格式（仅保留数据，表头格式也会丢失）")
+
+        # ---------- 读数据 ----------
+        try:
+            df_dict = pd.read_excel(work_path, sheet_name=None, header=None, engine='openpyxl')
+        except Exception as e:
+            if log_fn:
+                log_fn(f"  ❌ 读取失败：{e}")
+            return 0
+
+        # ---------- 逐 sheet 识别表头 ----------
+        sheet_headers = {}
+        for sn, df in df_dict.items():
+            h = resolve_header_row(df.values[:20].tolist(), config)
+            if h != -1 and h <= len(df):
+                sheet_headers[sn] = h
+        if not sheet_headers:
+            if log_fn:
+                log_fn("  ⚠️ 未找到有效表头，跳过")
+            return 0
+
+        # ---------- 读表头格式（一次性打开源工作簿） ----------
+        header_meta = {}
+        try:
+            wb_src = openpyxl.load_workbook(work_path, read_only=False, data_only=True)
+            for sn, h in sheet_headers.items():
+                if sn in wb_src.sheetnames:
+                    header_meta[sn] = _read_header_format(wb_src[sn], h)
+        except Exception as e:
+            if log_fn:
+                log_fn(f"  ❌ 读取格式失败：{e}")
+            return 0
+
+        # 每个源文件一套样式缓存（源工作簿存活期间 id 稳定）
+        style_cache = {'f': {}, 'fl': {}, 'b': {}, 'a': {}}
+        total_rows = 0
+
+        def emit(key, save_path, sheet_name, h_idx, rows_df, ws_src, src_max_col):
+            nonlocal total_rows
+            if len(rows_df) == 0 or sheet_name not in header_meta:
+                return
+            ob = outputs.get(key)
+            if ob is None:
+                # 防撞名覆盖：不同取值净化后同名时，自动追加 (2)/(3)... 后缀（F1）
+                used = {os.path.normcase(os.path.abspath(o.save_path)) for o in outputs.values()}
+                ob = _OutputBook(_dedupe_path(save_path, used))
+                outputs[key] = ob
+            cells, merges_, widths = header_meta[sheet_name]
+            sinfo = ob.get_or_create_sheet(sheet_name, h_idx, cells, merges_, widths)
+            first_cols = sinfo.setdefault('ncols', src_max_col)
+            if first_cols != src_max_col and log_fn:
+                log_fn(f"  ⚠️ 列数与首个来源不一致（{first_cols}→{src_max_col}），"
+                       f"按列位置合并可能错位：sheet「{sheet_name}」")
+            _append_rows(sinfo, rows_df, preserve_ok, ws_src, src_max_col, style_cache)
+            total_rows += len(rows_df)
+
+        # ---------- 逐 sheet 拆分 ----------
         for sn, h in sheet_headers.items():
-            if sn in wb_src.sheetnames:
-                header_meta[sn] = _read_header_format(wb_src[sn], h)
-    except Exception as e:
-        if log_fn:
-            log_fn(f"  ❌ 读取格式失败：{e}")
-        if wb_src is not None:
-            wb_src.close()
-        if is_tmp and os.path.exists(work_path):
-            os.remove(work_path)
-        return 0
-
-    # 每个源文件一套样式缓存（源工作簿存活期间 id 稳定）
-    style_cache = {'f': {}, 'fl': {}, 'b': {}, 'a': {}}
-    total_rows = 0
-
-    def emit(key, save_path, sheet_name, h_idx, rows_df, ws_src, src_max_col):
-        nonlocal total_rows
-        if len(rows_df) == 0 or sheet_name not in header_meta:
-            return
-        ob = outputs.get(key)
-        if ob is None:
-            ob = _OutputBook(save_path)
-            outputs[key] = ob
-        cells, merges_, widths = header_meta[sheet_name]
-        sinfo = ob.get_or_create_sheet(sheet_name, h_idx, cells, merges_, widths)
-        _append_rows(sinfo, rows_df, preserve_ok, ws_src, src_max_col, style_cache)
-        total_rows += len(rows_df)
-
-    # ---------- 逐 sheet 拆分 ----------
-    for sn, h in sheet_headers.items():
-        if stop_flag and stop_flag():
-            break
-        df = df_dict[sn]
-        col_idx = _find_col_index(df, h, split_column)
-        if col_idx is None:
-            continue
-        pcol_idx = _find_col_index(df, h, person_column) if do_person else None
-
-        data = df.iloc[h:]
-        if len(data) == 0:
-            continue
-        prim = data.iloc[:, col_idx].map(lambda v: apply_alias(v, alias))
-        persons = (data.iloc[:, pcol_idx].map(lambda v: apply_alias(v, alias))
-                   if (do_person and pcol_idx is not None) else None)
-
-        targets = selected if selected_set else sorted({v for v in prim if not is_skip_value(v, skip)})
-        ws_src = wb_src[sn] if (preserve_ok and sn in wb_src.sheetnames) else None
-        src_max_col = ws_src.max_column if ws_src is not None else df.shape[1]
-
-        for pval in targets:
             if stop_flag and stop_flag():
                 break
-            if is_skip_value(pval, skip):
+            df = df_dict[sn]
+            col_idx = _find_col_index(df, h, split_column)
+            if col_idx is None:
                 continue
-            pmask = prim.map(lambda x: pval in x) if (selected_set and not exact) else (prim == pval)
-            if not pmask.any():
+            pcol_idx = _find_col_index(df, h, person_column) if do_person else None
+
+            data = df.iloc[h:]
+            if len(data) == 0:
                 continue
-            sub = data[pmask]
+            prim = data.iloc[:, col_idx].map(lambda v: apply_alias(v, alias))
+            persons = (data.iloc[:, pcol_idx].map(lambda v: apply_alias(v, alias))
+                       if (do_person and pcol_idx is not None) else None)
 
-            # 汇总（始终产出）
-            k, p = _summary_key_path(output_root, pval, src_stem, single_file, merge)
-            emit(k, p, sn, h, sub, ws_src, src_max_col)
+            targets = selected if selected_set else sorted({v for v in prim if not is_skip_value(v, skip)})
+            ws_src = wb_src[sn] if (preserve_ok and sn in wb_src.sheetnames) else None
+            src_max_col = ws_src.max_column if ws_src is not None else df.shape[1]
 
-            # 到人（可选附加产出）
-            if persons is not None:
-                sub_persons = persons[pmask]
-                for person in sorted({v for v in sub_persons if not is_skip_value(v, skip)}):
-                    rows_df = sub[sub_persons == person]
-                    if len(rows_df):
-                        k2, p2 = _person_key_path(output_root, pval, person)
-                        emit(k2, p2, sn, h, rows_df, ws_src, src_max_col)
+            for pval in targets:
+                if stop_flag and stop_flag():
+                    break
+                if is_skip_value(pval, skip):
+                    continue
+                pmask = prim.map(lambda x: pval in x) if (selected_set and not exact) else (prim == pval)
+                if not pmask.any():
+                    continue
+                sub = data[pmask]
 
-    if wb_src is not None:
-        wb_src.close()
-    if is_tmp and os.path.exists(work_path):
-        os.remove(work_path)
+                # 汇总（始终产出）
+                k, p = _summary_key_path(output_root, pval, src_stem, single_file, merge)
+                emit(k, p, sn, h, sub, ws_src, src_max_col)
 
-    if log_fn and total_rows:
-        log_fn(f"  ✅ 命中 {total_rows} 行")
-    return total_rows
+                # 到人（可选附加产出）
+                if persons is not None:
+                    sub_persons = persons[pmask]
+                    for person in sorted({v for v in sub_persons if not is_skip_value(v, skip)}):
+                        rows_df = sub[sub_persons == person]
+                        if len(rows_df):
+                            k2, p2 = _person_key_path(output_root, pval, person)
+                            emit(k2, p2, sn, h, rows_df, ws_src, src_max_col)
+
+        if log_fn and total_rows:
+            log_fn(f"  ✅ 命中 {total_rows} 行")
+        return total_rows
+    finally:
+        # 无论正常结束还是中途异常，都释放源工作簿并清理临时文件（F2）
+        if wb_src is not None:
+            try:
+                wb_src.close()
+            except Exception:
+                pass
+        if is_tmp and os.path.exists(work_path):
+            try:
+                os.remove(work_path)
+            except OSError:
+                pass
 
 
 # =====================================================
@@ -620,7 +678,8 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
             if os.path.abspath(root).startswith(os.path.abspath(output_root)):
                 continue
             for f in files:
-                if f.lower().endswith(('.xlsx', '.xls')) and not f.startswith('~$'):
+                if (f.lower().endswith(('.xlsx', '.xls')) and not f.startswith('~$')
+                        and not f.endswith('__tmp__.xlsx')):   # 跳过旧版可能残留的临时文件
                     fp = os.path.join(root, f)
                     tasks.append((fp, os.path.relpath(fp, input_path)))
 
@@ -664,7 +723,19 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
     if make_zip and not single_file:
         for primary in primaries:
             folder = os.path.join(output_path, safe_filename(primary))
-            if os.path.isdir(folder) and any(os.scandir(folder)):
+            if not os.path.isdir(folder):
+                continue
+            # 若该取值的汇总是扁平文件（跨文件合并模式），先复制进 {取值}/汇总/ 再打包，
+            # 保证每个分组的 ZIP 自带「汇总 + 到人」，方便整包发负责人。
+            sb = outputs.get(('汇总', primary))
+            if sb is not None and os.path.exists(sb.save_path):
+                try:
+                    dst_dir = os.path.join(folder, "汇总")
+                    os.makedirs(dst_dir, exist_ok=True)
+                    shutil.copy2(sb.save_path, os.path.join(dst_dir, os.path.basename(sb.save_path)))
+                except Exception:
+                    pass
+            if any(os.scandir(folder)):
                 try:
                     shutil.make_archive(folder, 'zip', folder)
                     _log(f"  📦 {safe_filename(primary)}.zip")

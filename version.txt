@@ -5,8 +5,8 @@
 #
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 0, 0, 0),
-    prodvers=(2, 0, 0, 0),
+    filevers=(2, 1, 0, 0),
+    prodvers=(2, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -22,12 +22,12 @@ VSVersionInfo(
           [
             StringStruct(u'CompanyName', u'Abelin'),
             StringStruct(u'FileDescription', u'Excel 通用拆分工具'),
-            StringStruct(u'FileVersion', u'2.0.0.0'),
+            StringStruct(u'FileVersion', u'2.1.0.0'),
             StringStruct(u'InternalName', u'ExcelSplitter'),
             StringStruct(u'LegalCopyright', u'Copyright (c) 2026 Abelin. MIT License.'),
             StringStruct(u'OriginalFilename', u'Excel通用拆分工具.exe'),
             StringStruct(u'ProductName', u'Excel 通用拆分工具'),
-            StringStruct(u'ProductVersion', u'2.0.0.0')
+            StringStruct(u'ProductVersion', u'2.1.0.0')
           ]
         )
       ]
