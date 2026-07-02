@@ -17,6 +17,7 @@ import sys
 import json
 import threading
 import subprocess
+import webbrowser
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
@@ -46,6 +47,10 @@ DEFAULT_CONFIG_PATH = os.path.join(_resource_dir(), "config", "default_config.js
 USER_CONFIG_PATH    = os.path.join(_app_dir(), "user_config.json")
 
 COL_PLACEHOLDER = "（请先识别列）"
+
+APP_VERSION = "2.3"
+# 匿名反馈问卷地址（问卷 URL 确定后替换此处即可，一行改动 + 打 tag 发版）
+FEEDBACK_URL = "https://github.com/MarsandSea/excel-router/issues/new/choose"
 
 # 兜底默认配置（通用、不绑定任何业务）
 FALLBACK_CONFIG = {
@@ -89,7 +94,7 @@ def save_config(cfg):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("ExcelRouter · Excel 业务数据自动分发工具 v2.2")
+        self.title(f"ExcelRouter · Excel 业务数据自动分发工具 v{APP_VERSION}")
         self.geometry("780x860")
         self.minsize(700, 720)
         self._stop_flag = False
@@ -171,6 +176,10 @@ class App(ctk.CTk):
         self._stop_btn = ctk.CTkButton(ctrl, text="⏹ 停止", command=self._stop, width=100,
                                        fg_color="gray40", hover_color="gray30", state="disabled")
         self._stop_btn.grid(row=1, column=1, padx=10, sticky="w")
+        ctk.CTkButton(ctrl, text="💬 反馈建议", width=100, border_width=1,
+                      fg_color="transparent", text_color=("gray20", "gray80"),
+                      hover_color=("gray85", "gray25"),
+                      command=self._open_feedback).grid(row=1, column=2, sticky="w")
         ctk.CTkButton(ctrl, text="保存配置", width=100, fg_color="green", hover_color="darkgreen",
                       command=self._save_cfg).grid(row=1, column=3, sticky="e")
 
@@ -463,10 +472,22 @@ class App(ctk.CTk):
         self._stop_flag = True
         self._log("正在停止，请等待当前文件处理完成...")
 
+    def _open_feedback(self):
+        """打开匿名反馈页；顺手把版本号复制进剪贴板，方便用户粘贴到问卷。"""
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(f"ExcelRouter v{APP_VERSION}")
+        except Exception:
+            pass
+        webbrowser.open(FEEDBACK_URL)
+        self._log("💬 已打开反馈页，版本号已复制到剪贴板，粘贴到问卷即可。")
+
     def _on_done(self, cfg, output_path):
         self._start_btn.configure(state="normal")
         self._stop_btn.configure(state="disabled")
         self._progress.set(1)
+        if output_path:
+            self._log("💬 用得顺手或踩了坑？点「反馈建议」匿名告诉作者（1 分钟）。")
         if cfg.get("auto_open_output") and output_path and os.path.exists(output_path):
             try:
                 subprocess.Popen(f'explorer "{os.path.normpath(output_path)}"')
