@@ -50,7 +50,7 @@ COL_PLACEHOLDER = "（请先识别列）"
 
 APP_VERSION = "2.3"
 # 匿名反馈问卷地址（问卷 URL 确定后替换此处即可，一行改动 + 打 tag 发版）
-FEEDBACK_URL = "https://github.com/MarsandSea/excel-router/issues/new/choose"
+FEEDBACK_URL = "https://f.wps.cn/g/pBOAWUQc/"
 
 # 兜底默认配置（通用、不绑定任何业务）
 FALLBACK_CONFIG = {
