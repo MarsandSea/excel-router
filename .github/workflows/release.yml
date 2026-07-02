@@ -29,6 +29,7 @@ jobs:
         run: pytest -q
 
       - name: Syntax check
+        shell: bash
         run: python -m py_compile main.py core/*.py gui/*.py
 
       - name: Extract version from tag
