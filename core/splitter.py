@@ -516,7 +516,7 @@ def process_file(file_path, rel_path, output_root, config, outputs,
 
     if not split_column:
         if log_fn:
-            log_fn("  ⚠️ 未指定主拆分列，跳过")
+            log_fn("  ⚠️ 未指定拆分字段，跳过")
         return 0
 
     base_name = os.path.basename(file_path)
@@ -738,7 +738,7 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
     _log(f"共找到 {total} 个文件，开始处理...")
     if total == 0:
         _log("⚠️ 输入里没有找到任何 Excel 文件（.xlsx / .xls），请检查输入路径")
-    _log(f"主拆分列：{config.get('split_column', '')}"
+    _log(f"拆分字段：{config.get('split_column', '')}"
          + (f"｜到人：{config.get('person_column', '')}" if do_person else "")
          + f"｜跨文件合并：{'是' if config.get('merge_across_files', True) else '否'}\n")
 

@@ -48,7 +48,7 @@ def _app_dir():
 DEFAULT_CONFIG_PATH = os.path.join(_resource_dir(), "config", "default_config.json")
 USER_CONFIG_PATH    = os.path.join(_app_dir(), "user_config.json")
 
-COL_PLACEHOLDER = "（请先识别列）"
+COL_PLACEHOLDER = "（请先扫描字段）"
 
 # UI 泵用的「本轮没有此类消息」哨兵（不能用 None：识别列失败时 payload 就是空列表/None）
 _MISSING = object()
@@ -119,12 +119,21 @@ class App(ctk.CTk):
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text="Excel 通用拆分工具",
-                     font=ctk.CTkFont(size=20, weight="bold")).grid(
-            row=0, column=0, pady=(16, 0), padx=20, sticky="w")
-        ctk.CTkLabel(self, text="选一列，把 Excel 拆成多个文件 · 保留原格式 · Copyright © 2026 Abelin · MIT",
-                     font=ctk.CTkFont(size=11), text_color="gray").grid(
-            row=1, column=0, padx=20, sticky="w")
+        # 品牌标题区（与 GitHub / README / 官网 / 视频品牌语言统一）
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.grid(row=0, column=0, padx=20, pady=(16, 4), sticky="ew")
+        ctk.CTkLabel(head, text="ExcelRouter",
+                     font=ctk.CTkFont(size=26, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(head, text="Excel 业务数据自动分发工具",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color=("gray25", "gray75")).pack(anchor="w", pady=(2, 0))
+        ctk.CTkLabel(head, text="按业务规则自动拆分并分发 Excel 数据",
+                     font=ctk.CTkFont(size=12),
+                     text_color=("gray30", "gray70")).pack(anchor="w", pady=(6, 0))
+        ctk.CTkLabel(head, text="保留原格式 · 批量处理 · 自动打包",
+                     font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w", pady=(1, 0))
+        ctk.CTkLabel(head, text="作者 Abelin · MIT 开源",
+                     font=ctk.CTkFont(size=10), text_color="gray").pack(anchor="w", pady=(4, 0))
 
         # 输入/输出
         pf = ctk.CTkFrame(self)
@@ -151,13 +160,13 @@ class App(ctk.CTk):
         mf = ctk.CTkFrame(self)
         mf.grid(row=3, column=0, padx=20, pady=(12, 0), sticky="ew")
         mf.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(mf, text="按这列拆", font=ctk.CTkFont(size=13, weight="bold")).grid(
+        ctk.CTkLabel(mf, text="拆分字段", font=ctk.CTkFont(size=13, weight="bold")).grid(
             row=0, column=0, padx=12, pady=10, sticky="w")
         self._split_var = ctk.StringVar(value=self.cfg.get("split_column") or COL_PLACEHOLDER)
         self._split_menu = ctk.CTkOptionMenu(mf, variable=self._split_var,
                                              values=[self._split_var.get()], width=220)
         self._split_menu.grid(row=0, column=1, padx=8, pady=10, sticky="w")
-        ctk.CTkButton(mf, text="🔄 识别列", width=90, command=self._detect_columns).grid(
+        ctk.CTkButton(mf, text="🔄 扫描字段", width=104, command=self._detect_columns).grid(
             row=0, column=2, padx=8, pady=10)
         self._status = ctk.CTkLabel(mf, text="", font=ctk.CTkFont(size=11), text_color="gray")
         self._status.grid(row=1, column=0, columnspan=3, padx=12, pady=(0, 8), sticky="w")
@@ -341,7 +350,7 @@ class App(ctk.CTk):
         if not tpl:
             self._set_status("请先选择有效的输入")
             return
-        self._set_status("正在识别列...")
+        self._set_status("正在扫描字段...")
         cfg = self._collect_config()
 
         def work():
@@ -364,9 +373,9 @@ class App(ctk.CTk):
             self._pcol_menu.configure(values=cols)
             if self._pcol_var.get() not in cols:
                 self._pcol_var.set(cols[0])
-            self._set_status(f"识别到 {len(cols)} 列")
+            self._set_status(f"扫描到 {len(cols)} 个字段")
         else:
-            self._set_status("未识别到列（检查输入或高级里的表头设置）")
+            self._set_status("未扫描到字段（检查输入或高级里的表头设置）")
 
     def _set_status(self, text):
         self._status.configure(text=text)
@@ -481,7 +490,7 @@ class App(ctk.CTk):
             messagebox.showerror("错误", "请选择输出文件夹")
             return
         if not cfg["split_column"]:
-            messagebox.showerror("错误", "请先选择「按这列拆」（点「识别列」获取列名）")
+            messagebox.showerror("错误", "请先选择「拆分字段」（点「扫描字段」获取字段名）")
             return
         _, alias_ok = self._parse_alias()
         if not alias_ok:

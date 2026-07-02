@@ -25,7 +25,7 @@ body:
       description: 你做了哪些操作？（选的什么模式、什么列、什么配置）
       placeholder: |
         1. 输入选文件夹，里面有 3 个 xlsx
-        2. 主拆分列选「部门」，开启「到人」
+        2. 拆分字段选「部门」，开启「到人」
         3. 点击「开始处理」
     validations:
       required: true
