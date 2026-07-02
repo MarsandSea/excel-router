@@ -89,7 +89,7 @@ def save_config(cfg):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Excel 通用拆分工具 v2.1")
+        self.title("ExcelRouter · Excel 业务数据自动分发工具 v2.2")
         self.geometry("780x860")
         self.minsize(700, 720)
         self._stop_flag = False

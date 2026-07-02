@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests (block release on failure)
+        run: pytest -q
+
+      - name: Syntax check
+        run: python -m py_compile main.py core/*.py gui/*.py
+
+      - name: Extract version from tag
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build onedir (recommended distribution)
+        run: >
+          pyinstaller --onedir --noconsole
+          --name "ExcelRouter"
+          --icon app.ico
+          --version-file version.txt
+          --collect-all customtkinter
+          --add-data "config;config"
+          main.py
+
+      - name: Build onefile (single-file fallback)
+        run: >
+          pyinstaller --onefile --noconsole
+          --name "ExcelRouter-onefile"
+          --icon app.ico
+          --version-file version.txt
+          --collect-all customtkinter
+          --add-data "config;config"
+          main.py
+
+      - name: Package onedir as zip
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          Compress-Archive -Path "dist/ExcelRouter/*" -DestinationPath "dist/ExcelRouter-v$ver-win64.zip"
+          Rename-Item "dist/ExcelRouter-onefile.exe" "ExcelRouter-v$ver.exe"
+          Move-Item "ExcelRouter-v$ver.exe" "dist/ExcelRouter-v$ver.exe"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/ExcelRouter-v${{ steps.ver.outputs.version }}-win64.zip
+            dist/ExcelRouter-v${{ steps.ver.outputs.version }}.exe
+          generate_release_notes: true

@@ -1,0 +1,26 @@
+name: 💬 使用咨询
+description: 不确定怎么配置、某个功能怎么用
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提问前请先看一眼 **[FAQ](../../blob/main/docs/FAQ.md)** 和
+        **[README 的三步上手](../../blob/main/README.md#-三步上手--quick-start)**，
+        很多配置类问题里面已经写清楚了。
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 你想做什么，卡在哪一步
+      description: 描述你的数据结构（大致列名即可，不用真实数据）和想要的拆分效果
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 使用的版本
+      placeholder: 例：v2.2.0
+    validations:
+      required: false

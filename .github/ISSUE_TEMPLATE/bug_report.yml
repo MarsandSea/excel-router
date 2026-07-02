@@ -1,0 +1,68 @@
+name: 🐛 Bug 反馈
+description: 拆分结果不对、程序报错、崩溃等问题
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先看一眼 **[FAQ](../../blob/main/docs/FAQ.md)**——
+        杀毒软件误报、公式列空白、.xls 格式限制等常见问题都有解释，
+        如果你的问题在里面，能立刻解决，不用等回复。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 具体现象是什么？期望的结果应该是什么？
+      placeholder: 例：按「部门」拆分后，「销售部.xlsx」里少了几行数据
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 你做了哪些操作？（选的什么模式、什么列、什么配置）
+      placeholder: |
+        1. 输入选文件夹，里面有 3 个 xlsx
+        2. 主拆分列选「部门」，开启「到人」
+        3. 点击「开始处理」
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: 运行日志
+      description: 界面下方的日志框内容，或输出目录里的「运行日志.txt」，直接粘贴
+      render: text
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: 样例文件（可选，但强烈建议）
+      description: |
+        ⚠️ **务必先脱敏**：把姓名、工号、金额等真实数据替换成虚构值再上传，
+        保留能复现问题的表头结构和数据形态即可，不要上传真实业务数据。
+        可以直接拖拽文件到这个输入框。
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: 使用的版本
+      placeholder: 例：v2.2.0（在 Release 下载页文件名或程序标题栏能看到）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-type
+    attributes:
+      label: 使用的产物类型
+      options:
+        - ZIP 版（onedir，解压后运行）
+        - EXE 版（onefile，单文件）
+        - 从源码运行（python main.py）
+    validations:
+      required: true
