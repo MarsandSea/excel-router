@@ -6,7 +6,8 @@ Excel 通用拆分工具 - 图形界面
   · 输入选「文件夹」→ 自动展开批量区：每组打包 ZIP + 可选「同时拆到人」（仅指定的表）。
   · 「▸ 高级」折叠：表头识别策略、跳过值、取值归并、精确匹配、跨文件合并、保留格式。
 
-网格汇总与到人是同一次运行的两个产出。拆分在子线程里跑，self.after(0, ...) 回主线程更新 UI。
+网格汇总与到人是同一次运行的两个产出。拆分在子线程里跑，日志/进度经 queue 由主线程
+UI 泵（_pump_ui，每 100ms 批量刷新）更新界面——子线程绝不直接碰 Tk 控件。
 
 Copyright (c) 2026 Abelin
 MIT License
@@ -15,6 +16,7 @@ MIT License
 import os
 import sys
 import json
+import queue
 import threading
 import subprocess
 import webbrowser
@@ -48,7 +50,10 @@ USER_CONFIG_PATH    = os.path.join(_app_dir(), "user_config.json")
 
 COL_PLACEHOLDER = "（请先识别列）"
 
-APP_VERSION = "2.3"
+# UI 泵用的「本轮没有此类消息」哨兵（不能用 None：识别列失败时 payload 就是空列表/None）
+_MISSING = object()
+
+APP_VERSION = "2.4"
 # 匿名反馈问卷地址（问卷 URL 确定后替换此处即可，一行改动 + 打 tag 发版）
 FEEDBACK_URL = "https://f.wps.cn/g/pBOAWUQc/"
 
@@ -101,11 +106,14 @@ class App(ctk.CTk):
         self.cfg = load_config()
         self._columns = []
         self._adv_open = False
+        self._ui_q = queue.Queue()            # 子线程 → 主线程的消息队列
+        self._prog_indeterminate = False      # 进度条当前是否处于不定态动画
         self._build_ui()
         # 初始输入类型按已保存路径推断
         init_type = "文件夹" if os.path.isdir(self.cfg.get("input_path", "")) else "单个文件"
         self._input_type.set(init_type)
         self._on_input_type(init_type)
+        self.after(100, self._pump_ui)
 
     # ── UI 构建 ──────────────────────────────────────────
     def _build_ui(self):
@@ -343,7 +351,7 @@ class App(ctk.CTk):
                 cols = list_columns(tpl, cfg)
             except Exception:
                 cols = []
-            self.after(0, self._on_columns, cols)
+            self._ui_q.put(("columns", cols))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -425,8 +433,44 @@ class App(ctk.CTk):
         self._log_box.see("end")
         self._log_box.configure(state="disabled")
 
-    def _set_progress(self, val):
-        self._progress.set(val)
+    def _stop_indeterminate(self):
+        """进度条从不定态动画切回真实进度模式。"""
+        if self._prog_indeterminate:
+            self._prog_indeterminate = False
+            self._progress.stop()
+            self._progress.configure(mode="determinate")
+
+    def _pump_ui(self):
+        """主线程 UI 泵：每 100ms 批量消费子线程消息（日志/进度/识别列/完成）。
+
+        子线程绝不直接碰 Tk 控件；日志批量合并插入，进度只取最新值——
+        避免高频 after(0) 回调打满主线程事件队列（大文件时界面假死的诱因之一）。
+        """
+        logs, progress = [], None
+        done, cols = _MISSING, _MISSING
+        try:
+            while True:
+                kind, payload = self._ui_q.get_nowait()
+                if kind == "log":
+                    logs.append(payload)
+                elif kind == "progress":
+                    progress = payload
+                elif kind == "done":
+                    done = payload
+                elif kind == "columns":
+                    cols = payload
+        except queue.Empty:
+            pass
+        if logs:
+            self._log("\n".join(logs))
+        if progress is not None:
+            self._stop_indeterminate()
+            self._progress.set(progress)
+        if cols is not _MISSING:
+            self._on_columns(cols)
+        if done is not _MISSING:
+            self._on_done(*done)
+        self.after(100, self._pump_ui)
 
     def _start(self):
         cfg = self._collect_config()
@@ -445,26 +489,30 @@ class App(ctk.CTk):
             return
 
         self._stop_flag = False
-        self._start_btn.configure(state="disabled")
+        self._start_btn.configure(state="disabled", text="⏳ 处理中…")
         self._stop_btn.configure(state="normal")
-        self._progress.set(0)
         self._log_box.configure(state="normal")
         self._log_box.delete("1.0", "end")
         self._log_box.configure(state="disabled")
+        # 点击的瞬间就要看到反馈：先用不定态动画，第一条真实进度回来后自动切换（见 _pump_ui）
+        self._prog_indeterminate = True
+        self._progress.configure(mode="indeterminate")
+        self._progress.start()
+        self._log("▶ 已开始，正在扫描输入…")
 
         def run():
             try:
                 from core.splitter import run_split
                 output_path = run_split(
                     cfg,
-                    log_fn=lambda m: self.after(0, self._log, m),
-                    progress_fn=lambda v: self.after(0, self._set_progress, v),
+                    log_fn=lambda m: self._ui_q.put(("log", m)),
+                    progress_fn=lambda v: self._ui_q.put(("progress", v)),
                     stop_flag=lambda: self._stop_flag,
                 )
             except Exception as e:
-                self.after(0, self._log, f"\n❌ 运行出错：{e}")
+                self._ui_q.put(("log", f"\n❌ 运行出错：{e}"))
                 output_path = None
-            self.after(0, self._on_done, cfg, output_path)
+            self._ui_q.put(("done", (cfg, output_path)))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -483,8 +531,9 @@ class App(ctk.CTk):
         self._log("💬 已打开反馈页，版本号已复制到剪贴板，粘贴到问卷即可。")
 
     def _on_done(self, cfg, output_path):
-        self._start_btn.configure(state="normal")
+        self._start_btn.configure(state="normal", text="▶ 开始处理")
         self._stop_btn.configure(state="disabled")
+        self._stop_indeterminate()
         self._progress.set(1)
         if output_path:
             self._log("💬 用得顺手或踩了坑？点「反馈建议」匿名告诉作者（1 分钟）。")

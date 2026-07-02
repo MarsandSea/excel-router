@@ -123,15 +123,26 @@ excel_splitter/
 **限制（已在 README/界面注明）：** ① `.xls` 转换后无法保留原格式；
 ② 数据区合并单元格暂不保留；③ 跨文件合并按**列位置**追加，最适合「同一套模板的多个表」。
 
-### gui/app.py（v2.1：单屏自适应，已去三层分档）
+### gui/app.py（v2.1：单屏自适应，已去三层分档；v2.4：队列泵改造）
 
 - 输入用 `CTkSegmentedButton`「单个文件 / 文件夹」单选；`_on_input_type` 控制**批量区** `_batch_frame` 显隐
   （选文件夹才显示「每组 ZIP」「同时到人 + 列 + 关键词」）。**注意**：`_on_input_type` 只在路径与新类型
   不符时才清空，避免清掉启动时已保存的有效路径。
 - 「▸ 高级」`_toggle_adv` 折叠 `_adv_frame`：表头识别 / 跳过值 / 取值归并 / 精确匹配 / 跨文件合并 / 保留格式。
 - `_detect_columns` 在**子线程**读模板文件（单文件=它本身、文件夹=首个 Excel）、回主线程填主列/到人列下拉。
-- `_collect_config()` 产出 v2.1 字段；拆分在子线程跑，`self.after(0, ...)` 回主线程更新 UI。
-- 配置存到 `user_config.json`；`load_config` 用 FALLBACK 补齐缺键，旧版配置不会报错。
+- `_collect_config()` 产出 v2.1 字段；配置存到 `user_config.json`；`load_config` 用 FALLBACK 补齐缺键，
+  旧版配置不会报错。
+
+**拆分线程 → 主线程通信（v2.4，重要，勿回退）：** 子线程把日志/进度/完成信号 `put` 进
+`self._ui_q`（`queue.Queue`），主线程 `_pump_ui` 每 100ms 用 `after(100, self._pump_ui)` 自我调度、
+一次性 `get_nowait()` 排空队列后批量刷新 UI。**不要改回 `self.after(0, self._log, ...)` 这种子线程直接
+排程主线程回调的写法**——大文件（几万行）时 `core/splitter.py` 会高频报告进度/心跳日志，逐条
+`after(0, ...)` 会把 Tk 事件队列打满，表现为界面卡死/黑条纹无响应（v2.3 用户实测反馈的 bug）。
+点击「开始处理」的瞬间要给出即时反馈：进度条先切 `mode="indeterminate"` 播放滚动动画 + 立刻打一条
+日志，第一条真实进度值到达后 `_pump_ui` 自动切回 `determinate`（见 `_stop_indeterminate`）。
+`core/splitter.py` 侧配合：`process_file` 的 `tick_fn` 报告文件内部阶段进度（读取→读格式→拆分→保存），
+`_append_rows` 每 200 行调一次 `heartbeat()`（内含 `time.sleep(0.001)` 让出 GIL + 达到 2000 行报一次
+日志心跳）——**这两个回调不要删**，否则单文件几万行场景又会退回“进度条一开始就 100%、中间像假死”。
 
 ---
 

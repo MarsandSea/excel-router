@@ -36,6 +36,7 @@ MIT License
 
 import os
 import re
+import time
 import shutil
 import tempfile
 import warnings
@@ -417,11 +418,13 @@ class _OutputBook:
         return True
 
 
-def _append_rows(sheet_info, rows_df, preserve, ws_src, src_max_col, style_cache):
+def _append_rows(sheet_info, rows_df, preserve, ws_src, src_max_col, style_cache,
+                 heartbeat=None):
     """把过滤后的数据行追加到输出 sheet 的当前游标下。
 
     rows_df 的 index 是源表的【原始 0 基行号】，excel_row = index + 1。
     preserve=True 时从 ws_src 按原始行号逐格复制「值 + 格式」；否则只写值（来自 pandas）。
+    heartbeat(n) 每写入约 200 行回调一次，用于向界面报进度并让出 GIL（保持界面响应）。
     """
     ws_out = sheet_info['ws']
     start = sheet_info['next_row']
@@ -444,6 +447,8 @@ def _append_rows(sheet_info, rows_df, preserve, ws_src, src_max_col, style_cache
                             dst.number_format = src_cell.number_format
                     except Exception:
                         pass
+            if heartbeat and (offset + 1) % 200 == 0:
+                heartbeat(200)
     else:
         for offset, (_, row_series) in enumerate(rows_df.iterrows()):
             out_row = start + offset
@@ -451,6 +456,10 @@ def _append_rows(sheet_info, rows_df, preserve, ws_src, src_max_col, style_cache
                 if pd.isna(val):
                     continue
                 ws_out.cell(row=out_row, column=c_idx).value = val
+            if heartbeat and (offset + 1) % 200 == 0:
+                heartbeat(200)
+    if heartbeat and len(rows_df) % 200:
+        heartbeat(len(rows_df) % 200)
 
     sheet_info['next_row'] = start + len(rows_df)
 
@@ -487,12 +496,13 @@ def _person_key_path(output_root, primary, person):
 # =====================================================
 
 def process_file(file_path, rel_path, output_root, config, outputs,
-                 single_file=False, log_fn=None, stop_flag=None):
+                 single_file=False, log_fn=None, stop_flag=None, tick_fn=None):
     """处理单个文件：始终产出『汇总』；满足条件时附加产出『到人』。返回写入总行数。
 
     · 汇总：按 split_column 拆。单文件/merge=True → 扁平合并；文件夹+merge=False → 原文件拆分。
     · 到人：仅当 to_person 开、有 person_column、且文件名命中 person_file_filter 时，
       按 split_column → person_column 拆，同一人跨文件合并到一个文件。
+    · tick_fn(0..1) 报告本文件内部进度（读取→拆分各阶段），供界面进度条使用。
     """
     preserve_format = config.get('preserve_format', True)
     split_column    = soft_clean(config.get('split_column', ''))
@@ -518,11 +528,21 @@ def process_file(file_path, rel_path, output_root, config, outputs,
     src_stem = safe_filename(os.path.splitext(out_base)[0], "source")
 
     wb_src = None
+
+    def tick(frac):
+        """报告本文件内部进度（0~1），供界面进度条平滑推进。"""
+        if tick_fn:
+            tick_fn(min(max(frac, 0.0), 1.0))
+
     try:
+        tick(0.02)
+        if log_fn:
+            log_fn("  ⏳ 正在读取数据…（行数多的大文件这一步最慢，请耐心等待）")
         if not is_tmp and detect_uncalculated_formulas(work_path):
             if log_fn:
                 log_fn("  ⚠️ 注意：该文件含未计算的公式，相关列可能为空白，"
                        "建议用 Excel 打开另存后再处理")
+        tick(0.10)
         preserve_ok = preserve_format and not is_tmp
         if preserve_format and is_tmp and log_fn:
             log_fn("  ⚠️ .xls 转换后无法保留原始格式（仅保留数据，表头格式也会丢失）")
@@ -534,6 +554,7 @@ def process_file(file_path, rel_path, output_root, config, outputs,
             if log_fn:
                 log_fn(f"  ❌ 读取失败：{e}")
             return 0
+        tick(0.30)
 
         # ---------- 逐 sheet 识别表头 ----------
         sheet_headers = {}
@@ -547,6 +568,8 @@ def process_file(file_path, rel_path, output_root, config, outputs,
             return 0
 
         # ---------- 读表头格式（一次性打开源工作簿） ----------
+        if log_fn:
+            log_fn("  ⏳ 正在读取格式…")
         header_meta = {}
         try:
             wb_src = openpyxl.load_workbook(work_path, read_only=False, data_only=True)
@@ -557,10 +580,26 @@ def process_file(file_path, rel_path, output_root, config, outputs,
             if log_fn:
                 log_fn(f"  ❌ 读取格式失败：{e}")
             return 0
+        est_rows = sum(max(0, len(df_dict[sn]) - h) for sn, h in sheet_headers.items())
+        if log_fn:
+            log_fn(f"  ⏳ 读取完成（{len(sheet_headers)} 个 sheet，约 {est_rows} 行数据），开始拆分…")
+        tick(0.55)
 
         # 每个源文件一套样式缓存（源工作簿存活期间 id 稳定）
         style_cache = {'f': {}, 'fl': {}, 'b': {}, 'a': {}}
         total_rows = 0
+        touched_keys = set()
+        rows_written = 0
+        last_hb_log = 0
+
+        def heartbeat(n):
+            """每批行让出一次 GIL 给界面线程，并周期性在日志里报心跳。"""
+            nonlocal rows_written, last_hb_log
+            rows_written += n
+            time.sleep(0.001)
+            if log_fn and rows_written - last_hb_log >= 2000:
+                last_hb_log = rows_written
+                log_fn(f"    …已拆分写入 {rows_written} 行")
 
         def emit(key, save_path, sheet_name, h_idx, rows_df, ws_src, src_max_col):
             nonlocal total_rows
@@ -578,11 +617,14 @@ def process_file(file_path, rel_path, output_root, config, outputs,
             if first_cols != src_max_col and log_fn:
                 log_fn(f"  ⚠️ 列数与首个来源不一致（{first_cols}→{src_max_col}），"
                        f"按列位置合并可能错位：sheet「{sheet_name}」")
-            _append_rows(sinfo, rows_df, preserve_ok, ws_src, src_max_col, style_cache)
+            _append_rows(sinfo, rows_df, preserve_ok, ws_src, src_max_col, style_cache,
+                         heartbeat=heartbeat)
             total_rows += len(rows_df)
+            touched_keys.add(key)
 
         # ---------- 逐 sheet 拆分 ----------
-        for sn, h in sheet_headers.items():
+        n_sheets = max(1, len(sheet_headers))
+        for si, (sn, h) in enumerate(sheet_headers.items()):
             if stop_flag and stop_flag():
                 break
             df = df_dict[sn]
@@ -602,9 +644,11 @@ def process_file(file_path, rel_path, output_root, config, outputs,
             ws_src = wb_src[sn] if (preserve_ok and sn in wb_src.sheetnames) else None
             src_max_col = ws_src.max_column if ws_src is not None else df.shape[1]
 
-            for pval in targets:
+            for ti, pval in enumerate(targets):
                 if stop_flag and stop_flag():
                     break
+                # 进度按「分组」推进：拆分阶段占本文件的 0.55~0.99
+                tick(0.55 + 0.44 * ((si + ti / max(1, len(targets))) / n_sheets))
                 if is_skip_value(pval, skip):
                     continue
                 pmask = prim.map(lambda x: pval in x) if (selected_set and not exact) else (prim == pval)
@@ -626,7 +670,7 @@ def process_file(file_path, rel_path, output_root, config, outputs,
                             emit(k2, p2, sn, h, rows_df, ws_src, src_max_col)
 
         if log_fn and total_rows:
-            log_fn(f"  ✅ 命中 {total_rows} 行")
+            log_fn(f"  ✅ 本文件命中 {total_rows} 行 → 分入 {len(touched_keys)} 个输出文件")
         return total_rows
     finally:
         # 无论正常结束还是中途异常，都释放源工作簿并清理临时文件（F2）
@@ -648,7 +692,11 @@ def process_file(file_path, rel_path, output_root, config, outputs,
 
 def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
     """拆分入口：input_path 可为单文件或目录。一次运行产出『汇总』+ 可选『到人』，
-    最后统一保存，并对每个生成了文件夹的主取值打包 ZIP。返回输出目录。"""
+    最后统一保存，并对每个生成了文件夹的主取值打包 ZIP。返回输出目录。
+
+    progress_fn(0~1) 反映整体真实进度：处理各文件占 0~0.75（含文件内部各阶段），
+    保存输出占 0.75~0.98，打包收尾到 1.0。"""
+    t0 = time.time()
     input_path  = config["input_path"]
     output_root = config["output_path"]
     make_zip    = config.get('make_zip', True)
@@ -688,6 +736,8 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
 
     total = len(tasks)
     _log(f"共找到 {total} 个文件，开始处理...")
+    if total == 0:
+        _log("⚠️ 输入里没有找到任何 Excel 文件（.xlsx / .xls），请检查输入路径")
     _log(f"主拆分列：{config.get('split_column', '')}"
          + (f"｜到人：{config.get('person_column', '')}" if do_person else "")
          + f"｜跨文件合并：{'是' if config.get('merge_across_files', True) else '否'}\n")
@@ -698,26 +748,43 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
         if stop_flag and stop_flag():
             _log("⛔ 已停止")
             break
-        _log(f"[{i + 1}/{total}] {rp}")
-        if progress_fn:
-            progress_fn((i + 1) / total)
+        try:
+            size_mb = os.path.getsize(fp) / 1048576
+            _log(f"[{i + 1}/{total}] {rp}（{size_mb:.1f} MB）")
+        except OSError:
+            _log(f"[{i + 1}/{total}] {rp}")
+
+        # 整体进度 = (已完成文件数 + 当前文件内部进度) / 总文件数，处理阶段占 0~0.75。
+        # 旧版按 (i+1)/total 报进度，单文件场景一开始就 100%，误导用户以为卡死。
+        def _tick(frac, _i=i):
+            if progress_fn:
+                progress_fn((_i + frac) / total * 0.75)
+
+        _tick(0.0)
         try:
             grand_total += process_file(fp, rp, output_path, config, outputs,
-                                        single_file, _log, stop_flag)
+                                        single_file, _log, stop_flag, tick_fn=_tick)
         except Exception as e:
             _log(f"  ❌ 处理失败：{e}")
+        _tick(1.0)
 
     # ---------- 统一保存所有输出文件 ----------
-    _log(f"\n正在保存 {len(outputs)} 个输出文件...")
+    n_out = len(outputs)
+    _log(f"\n正在保存 {n_out} 个输出文件...")
     saved = 0
     primaries = set()
-    for key, ob in outputs.items():
+    for j, (key, ob) in enumerate(outputs.items()):
         try:
             if ob.save():
                 saved += 1
                 primaries.add(key[1])   # key = (tree, primary, ...)
         except Exception as e:
             _log(f"  ❌ 保存失败 {ob.save_path}：{e}")
+        if progress_fn:
+            progress_fn(0.75 + 0.23 * (j + 1) / n_out)
+        if (j + 1) % 10 == 0 and (j + 1) < n_out:
+            _log(f"  …已保存 {j + 1}/{n_out}")
+        time.sleep(0.002)   # 让出 GIL，保存阶段保持界面响应
 
     # ---------- 对每个生成了文件夹的主取值打包 ZIP（方便分发） ----------
     if make_zip and not single_file:
@@ -742,7 +809,11 @@ def run_split(config, log_fn=None, progress_fn=None, stop_flag=None):
                 except Exception as e:
                     _log(f"  ⚠️ 打包失败 {primary}：{e}")
 
-    _log(f"\n✅ 全部完成！生成 {saved} 个文件，共写入 {grand_total} 行")
+    if progress_fn:
+        progress_fn(1.0)
+    mm, ss = divmod(int(time.time() - t0 + 0.5), 60)
+    _log(f"\n✅ 全部完成！生成 {saved} 个文件，共写入 {grand_total} 行，"
+         f"耗时 {f'{mm} 分 {ss} 秒' if mm else f'{ss} 秒'}")
     _log(f"📁 输出目录：{output_path}")
 
     return output_path
