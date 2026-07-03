@@ -1,10 +1,10 @@
-# ExcelRouter · Excel 业务数据自动分发工具
+# ExcelRouter · Excel 批量拆分工具
 
-> 一键将复杂 Excel 按业务规则拆分为上百个结构化文件，并自动分类打包。
+> 整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，保留原格式，自动打包分发。
 > 自动识别表头、跨文件合并、零编程，面向普通办公人员。
 >
-> Route Excel data by configurable business rules — auto header detection,
-> cross-file merge, no coding required.
+> Batch-split a whole folder of Excel files by any field (department / region / ID),
+> keep original formatting, auto-package for distribution — no coding required.
 >
 > 作者 / Author：Abelin · 觉得好用请点 ⭐ Star！
 

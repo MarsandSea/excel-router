@@ -18,11 +18,17 @@
 所有源码文件顶部都有 `Copyright (c) 2026 Abelin · MIT License` 署名，**请勿删除任何文件的版权头**。
 
 > **品牌名变更（2026-07，v2.2）**：项目对外品牌名从「Excel 通用拆分工具 / Excel Splitter」
-> 改为 **ExcelRouter（中文名：Excel 业务数据自动分发工具）**，定位从「拆分工具」升维为
-> 「规则驱动的 Excel 数据分发引擎」。GitHub 仓库已从 `excel-splitter` rename 为 `excel-router`
+> 改为 **ExcelRouter**。GitHub 仓库已从 `excel-splitter` rename 为 `excel-router`
 > （GitHub 自动保留旧链接 301 跳转）。**代码内部标识符（`excel_splitter` 包名、内部变量名、
 > `core/splitter.py` 文件名等）不需要跟着改**，只改**用户可见的品牌文案**：窗口标题、
 > `version.txt` 元数据、`build.bat` 产物名、README。旧版本号 v2.1 → 新版本号 v2.2。
+>
+> **品牌文案定稿（2026-07-03，v2.4 后）**：采用「品牌名 + 直白副标 + 差异化标语」三层结构，
+> 中文副标从「Excel 业务数据自动分发工具」改为 **「Excel 批量拆分工具」**（新人 3 秒看懂 +
+> 保留"Excel/拆分"搜索词；Router 的"分发"含义降级到标语里承载）。统一文案：窗口标题
+> `ExcelRouter · Excel 批量拆分工具`；标语「整个文件夹一键拆完：按部门、区域、工号等字段
+> 自动拆分，打包分发」；特性行「保留原格式 · 跨文件自动合并 · 单个文件也能拆」。
+> 界面术语：「拆分字段」「🔄 扫描字段」（不再用「按这列拆 / 识别列」）。**已定稿，勿再反复改**。
 
 ---
 

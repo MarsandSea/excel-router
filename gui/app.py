@@ -99,7 +99,7 @@ def save_config(cfg):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title(f"ExcelRouter · Excel 业务数据自动分发工具 v{APP_VERSION}")
+        self.title(f"ExcelRouter · Excel 批量拆分工具 v{APP_VERSION}")
         self.geometry("780x860")
         self.minsize(700, 720)
         self._stop_flag = False
@@ -124,13 +124,13 @@ class App(ctk.CTk):
         head.grid(row=0, column=0, padx=20, pady=(16, 4), sticky="ew")
         ctk.CTkLabel(head, text="ExcelRouter",
                      font=ctk.CTkFont(size=26, weight="bold")).pack(anchor="w")
-        ctk.CTkLabel(head, text="Excel 业务数据自动分发工具",
+        ctk.CTkLabel(head, text="Excel 批量拆分工具",
                      font=ctk.CTkFont(size=14, weight="bold"),
                      text_color=("gray25", "gray75")).pack(anchor="w", pady=(2, 0))
-        ctk.CTkLabel(head, text="按业务规则自动拆分并分发 Excel 数据",
+        ctk.CTkLabel(head, text="整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，打包分发",
                      font=ctk.CTkFont(size=12),
                      text_color=("gray30", "gray70")).pack(anchor="w", pady=(6, 0))
-        ctk.CTkLabel(head, text="保留原格式 · 批量处理 · 自动打包",
+        ctk.CTkLabel(head, text="保留原格式 · 跨文件自动合并 · 单个文件也能拆",
                      font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w", pady=(1, 0))
         ctk.CTkLabel(head, text="作者 Abelin · MIT 开源",
                      font=ctk.CTkFont(size=10), text_color="gray").pack(anchor="w", pady=(4, 0))
