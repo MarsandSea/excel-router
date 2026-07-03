@@ -9,7 +9,8 @@
 **ExcelRouter**（内部代号/包名仍是 `excel_splitter`）：一个 Windows 桌面工具，把一批 Excel
 表格，**按用户指定的任意一个字段的取值**拆分成多个文件（每个取值一个文件），可选再按第二个
 字段做二级拆分（「到人」），并保留原始表头格式。面向不会编程的普通办公人员，v2.1 起界面已改为
-**单屏自适应**（不再是三层分档 Tab）：核心操作一屏完成，进阶/专家选项收进「▸ 高级设置」折叠区。
+**单屏自适应**（不再是三层分档 Tab），v2.4 后期进一步重构为**三步卡片式**：
+①选表格 → ②选字段 → ③开始拆分，主按钮固定底部，高级设置与日志默认折叠。
 当前版本 **v2.4**，GitHub 仓库：`MarsandSea/excel-router`。
 
 > v1.0 原是「网格化管理」专用（按网格 + 工号识别）。v2.0 已**通用化**：表头自动识别、
@@ -51,8 +52,10 @@ excel_splitter/
 ├── README.md                  # 中英双语说明（含实拍截图 docs/screenshot_*.jpg）
 ├── LICENSE                    # MIT 许可证
 ├── requirements.txt           # 运行依赖
-├── requirements-dev.txt       # 开发/测试依赖（pytest、pyinstaller）
+├── requirements-dev.txt       # 开发/测试依赖（pytest、pyinstaller、ruff）
 ├── conftest.py                # 让 pytest 能 import core 包
+├── ruff.toml                  # Ruff 静态检查配置（全仓库 lint；core/tests 存量风格已按文件豁免）
+├── pyrightconfig.json         # Pyright 类型检查配置（检查范围：gui/ + main.py，core 存量未纳入）
 ├── .gitignore                 # 忽略 dist/build/用户配置等
 ├── build.bat                  # 一键打包脚本：本地同时产出 onedir（推荐）+ onefile 两个产物
 ├── app.ico                    # 程序图标（占位，用户可替换）
@@ -66,7 +69,7 @@ excel_splitter/
 │   └── utils.py               # 文本清理 + 取值归并 + 文件名净化
 ├── gui/
 │   ├── __init__.py
-│   └── app.py                 # customtkinter 单屏自适应界面（含打包路径适配、队列泵）
+│   └── app.py                 # customtkinter 三步卡片式界面（含打包路径适配、队列泵）
 ├── examples/
 │   ├── make_sample.py         # 可复现样本生成器：5 个月份 × 55 名虚拟员工，3 行合并表头
 │   └── {1-5}月A分公司明细.xlsx # 生成的演示样本（跨文件合并 + 到人演示用）
@@ -137,15 +140,35 @@ excel_splitter/
 **限制（已在 README/界面注明）：** ① `.xls` 转换后无法保留原格式；
 ② 数据区合并单元格暂不保留；③ 跨文件合并按**列位置**追加，最适合「同一套模板的多个表」。
 
-### gui/app.py（v2.1：单屏自适应，已去三层分档；v2.4：队列泵改造）
+### gui/app.py（v2.4 后期：三步卡片式重构；队列泵机制不变）
 
-- 输入用 `CTkSegmentedButton`「单个文件 / 文件夹」单选；`_on_input_type` 控制**批量区** `_batch_frame` 显隐
-  （选文件夹才显示「每组 ZIP」「同时到人 + 列 + 关键词」）。**注意**：`_on_input_type` 只在路径与新类型
-  不符时才清空，避免清掉启动时已保存的有效路径。
-- 「▸ 高级」`_toggle_adv` 折叠 `_adv_frame`：表头识别 / 跳过值 / 取值归并 / 精确匹配 / 跨文件合并 / 保留格式。
-- `_detect_columns` 在**子线程**读模板文件（单文件=它本身、文件夹=首个 Excel）、回主线程填主列/到人列下拉。
-- `_collect_config()` 产出 v2.1 字段；配置存到 `user_config.json`；`load_config` 用 FALLBACK 补齐缺键，
-  旧版配置不会报错。
+**布局**（self 的 grid 行）：row0 品牌区（品牌名+副标同行、标语、特性行，作者信息在页脚）→
+row1 `CTkScrollableFrame` 步骤区（weight=1）：①②卡片 + 「▸ 高级设置」折叠 →
+row2 **固定操作区**③卡片（输出目录 + 主按钮 + 进度 + 状态行，永远可达）→
+row3 工具条（「▸ 处理详情」日志折叠钮 | 「💬 反馈建议」「保存配置」）→ row4 日志框（默认收起，
+**失败时自动展开**）→ row5 页脚（🔒 数据仅在本机处理 · 作者 · MIT）。
+`_step_card()` 生成带编号圆徽章的卡片；`_ghost_button`/`_flat_button` 是次要/纯文字按钮工厂
+（勿改回 `**dict` 解包样式——pyright 无法对异构 dict 解包做类型匹配）。
+
+- **① 选表格**：「📄 选一个 Excel 文件 / 📁 选整个文件夹」两个直选按钮（替代旧 SegmentedButton+浏览）；
+  输入类型由 `os.path.isdir` 自动推断，`_update_input_ui` 控制批量区 `_batch_frame` 显隐；
+  路径框可手动粘贴（Return/FocusOut → `_on_path_edited`，`_scanned_path` 防重复扫描）。
+- **选完输入自动三连**（`_after_pick`）：显隐批量区 + `_suggest_output` 自动推荐输出目录
+  （文件→同目录`拆分结果`；文件夹→父目录`{名}_拆分结果`；`_out_auto` 记录推荐值，用户手改过就不再覆盖）
+  + `_scan_input` 后台扫描。
+- `_scan_input`（替代旧 `_detect_columns`）在**子线程**统计 Excel 数、找模板、`list_columns`，
+  经 UI 泵消息 `("scan", (cols, n, tpl_name, is_dir, p))` 回主线程；`_on_scan` 先校验 p 未过期。
+  `_on_columns` 填充下拉，保存值失效时用 `_recommend_split`/`_recommend_person` 按关键词智能预选。
+- **② 选字段**：拆分字段下拉 + 🔄 扫描字段；批量选项子卡片在②内（仅文件夹显示）：每组 ZIP、
+  同时拆到人（未勾选时子控件置灰，`_update_person_state`）。
+- **③ 开始拆分**：`⏹ 停止` 只在运行时出现、`📂 打开输出文件夹` 成功后出现（`_last_output`）；
+  `_run_status` 状态行运行时**镜像最新一条日志**（截 70 字符），完成 ✅ 绿 / 停止 ⏹ 橙 / 失败 ❌ 红。
+- `_start` 校验链含**新增拦截**：目录模式下「输出 == 输入」或「输出是输入的上层」直接阻止——
+  `run_split` 扫描时会把 output_root 前缀整体跳过，这两种选法会导致“找不到任何文件”。
+- `_on_done` 成功时**静默 `save_config(cfg)`**（失败运行不存，避免记坏参数）；启动时若上次输入
+  路径仍存在则自动扫描，实现「打开即用」。
+- `_collect_config()` 字段与 v2.1 完全一致（config schema 未变）；`load_config` 用 FALLBACK
+  补齐缺键，旧版配置不会报错。
 - **匿名反馈入口（v2.3 起）**：模块级常量 `APP_VERSION`、`FEEDBACK_URL`（当前指向 WPS 匿名问卷）。
   「💬 反馈建议」按钮 `_open_feedback` 打开问卷 + 把版本号复制进剪贴板；`_on_done` 仅在**成功完成**
   时在日志追加一行反馈引导（失败路径不加，避免像推卸责任）。**不做任何遥测/自动上报**——
@@ -156,7 +179,7 @@ excel_splitter/
 一次性 `get_nowait()` 排空队列后批量刷新 UI。**不要改回 `self.after(0, self._log, ...)` 这种子线程直接
 排程主线程回调的写法**——大文件（几万行）时 `core/splitter.py` 会高频报告进度/心跳日志，逐条
 `after(0, ...)` 会把 Tk 事件队列打满，表现为界面卡死/黑条纹无响应（v2.3 用户实测反馈的 bug）。
-点击「开始处理」的瞬间要给出即时反馈：进度条先切 `mode="indeterminate"` 播放滚动动画 + 立刻打一条
+点击「开始拆分」的瞬间要给出即时反馈：进度条先切 `mode="indeterminate"` 播放滚动动画 + 立刻打一条
 日志，第一条真实进度值到达后 `_pump_ui` 自动切回 `determinate`（见 `_stop_indeterminate`）。
 `core/splitter.py` 侧配合：`process_file` 的 `tick_fn` 报告文件内部阶段进度（读取→读格式→拆分→保存），
 `_append_rows` 每 200 行调一次 `heartbeat()`（内含 `time.sleep(0.001)` 让出 GIL + 达到 2000 行报一次
@@ -204,11 +227,15 @@ v1.0 逐文件独立处理、每个输出文件都新建 Workbook 后 `save` 覆
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 py main.py                 # 本机解释器是 py 启动器，见 [[python-launcher-gotcha]]
+ruff check .               # 静态检查，必须全绿（配置见 ruff.toml，存量豁免勿扩大）
+npx pyright --pythonpath "$(py -c 'import sys; print(sys.executable)')"
+                           # 类型检查（范围 gui/+main.py；必须传 --pythonpath，
+                           # 因为 PATH 里的 python 是商店 stub，pyright 自己找不到依赖）
 py -m py_compile main.py core/*.py gui/*.py
 pytest -q
 ```
 
-GUI 需要图形环境；无显示器时只做语法检查 + `pytest -q`。
+GUI 需要图形环境；无显示器时只做静态检查 + `pytest -q`。
 
 ### 2. 发版（真正会打包发布时）
 
