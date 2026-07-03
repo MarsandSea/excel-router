@@ -17,6 +17,7 @@ MIT License
 """
 
 import os
+import re
 import sys
 import json
 import queue
@@ -140,9 +141,12 @@ class App(ctk.CTk):
         self._prog_indeterminate = False      # 进度条当前是否处于不定态动画
         self._build_ui()
         self._update_input_ui()
-        if not self._output_var.get().strip():
+        p = self.cfg.get("input_path", "")
+        saved_out = self._output_var.get().strip()
+        if not saved_out:
             self._suggest_output()
-        p = self._input_var.get().strip()
+        elif saved_out and os.path.normcase(saved_out) == os.path.normcase(self._auto_output_for(p) or ""):
+            self._out_auto = saved_out    # 上次存的就是自动值：换输入时允许跟着更新
         if p and os.path.exists(p):
             self._scan_input()        # 上次的输入还在：启动即自动扫描，打开就能直接开始
         self.after(100, self._pump_ui)
@@ -373,7 +377,7 @@ class App(ctk.CTk):
         self._progress = ctk.CTkProgressBar(card)
         self._progress.grid(row=3, column=0, padx=12, pady=(8, 2), sticky="ew")
         self._progress.set(0)
-        self._run_status = ctk.CTkLabel(card, text="完成上面 ① ② 两步后，点「开始拆分」",
+        self._run_status = ctk.CTkLabel(card, text="完成 ① ② 后直接点「开始拆分」；保存位置不用改，结果会放进自动创建的「拆分结果」文件夹",
                                         font=ctk.CTkFont(size=11), text_color=C_MUTED, anchor="w")
         self._run_status.grid(row=4, column=0, padx=12, pady=(0, 10), sticky="w")
 
@@ -474,22 +478,29 @@ class App(ctk.CTk):
         if path:
             self._output_var.set(os.path.normpath(path))
 
+    @staticmethod
+    def _auto_output_for(p):
+        """输入路径对应的默认输出目录；无法推导时返回空串。
+
+        文件 → 同目录下「拆分结果」；文件夹 → 文件夹里面的「拆分结果」——结果永远出现在
+        用户数据旁边，找得到、不污染上层目录。放输入里面是安全的：run_split 递归扫描时
+        会整体跳过 output_root 子树（重复运行也不会把旧结果吃回去）。
+        """
+        if os.path.isdir(p):
+            return os.path.join(os.path.normpath(p), "拆分结果")
+        if os.path.isfile(p):
+            return os.path.join(os.path.dirname(p), "拆分结果")
+        return ""
+
     def _suggest_output(self):
         """按输入自动推荐输出目录；用户手动定过（当前值≠上次推荐值）就不再覆盖。"""
         cur = self._output_var.get().strip()
         if cur and cur != self._out_auto:
             return
-        p = self._input_var.get().strip()
-        if os.path.isdir(p):
-            norm = os.path.normpath(p)
-            base = os.path.basename(norm) or "拆分"
-            auto = os.path.join(os.path.dirname(norm), f"{base}_拆分结果")
-        elif os.path.isfile(p):
-            auto = os.path.join(os.path.dirname(p), "拆分结果")
-        else:
-            return
-        self._output_var.set(auto)
-        self._out_auto = auto
+        auto = self._auto_output_for(self._input_var.get().strip())
+        if auto:
+            self._output_var.set(auto)
+            self._out_auto = auto
 
     # ── 扫描输入（文件数 + 字段），子线程执行 ───────────
     def _scan_input(self):
@@ -504,11 +515,19 @@ class App(ctk.CTk):
         self._set_in_status("正在读取…", C_MUTED)
         self._set_scan_status("正在识别表格里的字段…", C_MUTED)
         cfg = self._collect_config()
+        out_now = self._output_var.get().strip()
 
         def work():
+            # 计数镜像 run_split 的规则：输出目录子树整体跳过（结果放在输入里时数字才对）
+            out_abs = os.path.normcase(os.path.abspath(out_now)) if out_now else None
             tpl, n = None, 0
             if is_dir:
-                for root, _, files in os.walk(p):
+                for root, dirs, files in os.walk(p):
+                    if out_abs:
+                        ra = os.path.normcase(os.path.abspath(root))
+                        if ra == out_abs or ra.startswith(out_abs + os.sep):
+                            dirs[:] = []
+                            continue
                     for fn in sorted(files):
                         if fn.lower().endswith(('.xlsx', '.xls')) and not fn.startswith('~$'):
                             n += 1
@@ -572,6 +591,25 @@ class App(ctk.CTk):
                 if kw in str(c):
                     return c
         return cols[0]
+
+    def _find_stale_results(self, input_dir, output_root):
+        """输入文件夹里「不被本次输出目录覆盖」的历史拆分结果目录。
+
+        结果默认放在输入里面、由 run_split 按 output_root 跳过；但如果用户后来把输出
+        改到了别处，留在输入里的旧结果就会被当成数据拆一遍（静默重复）。开跑前找出来确认。
+        """
+        out = os.path.normcase(os.path.abspath(output_root))
+        hits = []
+        for root, dirs, _ in os.walk(input_dir):
+            for d in list(dirs):
+                full = os.path.normcase(os.path.abspath(os.path.join(root, d)))
+                if full == out or full.startswith(out + os.sep):
+                    dirs.remove(d)    # 本次输出覆盖的子树，run_split 会跳过，不算
+                    continue
+                if d == "拆分结果" or d.endswith("_拆分结果") or re.fullmatch(r"\d{8}结果", d):
+                    hits.append(os.path.join(root, d))
+                    dirs.remove(d)    # 命中即整树算一个，不再往里翻
+        return hits
 
     def _set_in_status(self, text, color=C_MUTED):
         self._in_status.configure(text=text, text_color=color)
@@ -713,6 +751,27 @@ class App(ctk.CTk):
                     return
             except Exception:
                 pass
+            # 输入里有历史拆分结果、而本次输出没盖住它 → 会被当数据重复拆，先问一声
+            try:
+                stale = self._find_stale_results(cfg["input_path"], cfg["output_path"])
+            except Exception:
+                stale = []
+            if stale:
+                shown = "\n".join(stale[:3]) + ("\n…" if len(stale) > 3 else "")
+                if not messagebox.askyesno(
+                        "发现以前的拆分结果",
+                        f"输入文件夹里有以前拆出来的结果：\n{shown}\n\n"
+                        "这次运行会把里面的文件也当成数据一起拆，内容可能重复。\n"
+                        "建议先把它们移走/删除，或把保存位置改回默认。\n\n仍要继续吗？"):
+                    return
+        # 保存位置提前建好：位置只读/无权限时现在就报，而不是跑到一半失败
+        try:
+            os.makedirs(cfg["output_path"], exist_ok=True)
+        except OSError as e:
+            messagebox.showerror("无法创建保存位置",
+                                 f"没法在这里创建结果文件夹：\n{cfg['output_path']}\n\n{e}\n\n"
+                                 "请点「浏览」换一个能写入的位置（比如桌面或文档）。")
+            return
         _, alias_ok = self._parse_alias()
         if not alias_ok:
             messagebox.showwarning("高级设置有误", "「高级设置 → 取值归并映射」不是合法 JSON，请修正或清空。")
