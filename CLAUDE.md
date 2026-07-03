@@ -6,9 +6,11 @@
 
 ## 项目是什么
 
-一个 Windows 桌面工具（v2.0「通用拆分」）：把一批 Excel 表格，**按用户指定的任意一列的取值**
-拆分成多个文件（每个取值一个文件），可选再按第二列做二级拆分，并保留原始表头格式。
-面向不会编程的普通办公人员，界面分「简单 / 进阶 / 专家」三层递进。
+**ExcelRouter**（内部代号/包名仍是 `excel_splitter`）：一个 Windows 桌面工具，把一批 Excel
+表格，**按用户指定的任意一个字段的取值**拆分成多个文件（每个取值一个文件），可选再按第二个
+字段做二级拆分（「到人」），并保留原始表头格式。面向不会编程的普通办公人员，v2.1 起界面已改为
+**单屏自适应**（不再是三层分档 Tab）：核心操作一屏完成，进阶/专家选项收进「▸ 高级设置」折叠区。
+当前版本 **v2.4**，GitHub 仓库：`MarsandSea/excel-router`。
 
 > v1.0 原是「网格化管理」专用（按网格 + 工号识别）。v2.0 已**通用化**：表头自动识别、
 > 按列名选列、自动枚举取值、跨文件合并。作者原来的网格 + 岗位工作流用「专家模式」
@@ -46,15 +48,15 @@
 excel_splitter/
 ├── main.py                    # 入口，只有几行，调用 gui.app.run()
 ├── CLAUDE.md                  # 本文件
-├── README.md                  # 中英双语说明（含截图占位 docs/screenshot.png）
+├── README.md                  # 中英双语说明（含实拍截图 docs/screenshot_*.jpg）
 ├── LICENSE                    # MIT 许可证
 ├── requirements.txt           # 运行依赖
 ├── requirements-dev.txt       # 开发/测试依赖（pytest、pyinstaller）
 ├── conftest.py                # 让 pytest 能 import core 包
 ├── .gitignore                 # 忽略 dist/build/用户配置等
-├── build.bat                  # 一键打包脚本（含必需的打包参数，推荐直接用）
+├── build.bat                  # 一键打包脚本：本地同时产出 onedir（推荐）+ onefile 两个产物
 ├── app.ico                    # 程序图标（占位，用户可替换）
-├── version.txt                # Windows 版本信息（PyInstaller --version-file 用，v2.0）
+├── version.txt                # Windows 版本信息（PyInstaller --version-file 用，随版本号同步更新）
 ├── config/
 │   └── default_config.json    # 默认配置（通用空配置，新字段见下「数据模型」）
 ├── user_config.json           # 用户保存的配置（运行时生成在程序目录，不入库）
@@ -64,11 +66,17 @@ excel_splitter/
 │   └── utils.py               # 文本清理 + 取值归并 + 文件名净化
 ├── gui/
 │   ├── __init__.py
-│   └── app.py                 # customtkinter 三层递进界面（含打包路径适配）
+│   └── app.py                 # customtkinter 单屏自适应界面（含打包路径适配、队列泵）
 ├── examples/
-│   ├── make_sample.py         # 可复现样本生成器（演示跨文件合并）
-│   └── sample_团队A/B.xlsx    # 生成的演示样本
-├── docs/                      # README 截图 / GIF 资源（待补 screenshot.png）
+│   ├── make_sample.py         # 可复现样本生成器：5 个月份 × 55 名虚拟员工，3 行合并表头
+│   └── {1-5}月A分公司明细.xlsx # 生成的演示样本（跨文件合并 + 到人演示用）
+├── docs/
+│   ├── FAQ.md                 # 常见问题（杀毒误报、公式空白、.xls限制、大文件进度等）
+│   ├── RELEASING.md           # 维护者发版手册（CI 流程、误报处理、双产物说明）
+│   └── screenshot_*.jpg       # README 用截图
+├── .github/
+│   ├── workflows/release.yml  # tag push v* 触发：测试→双 PyInstaller 构建→打包→发 Release
+│   └── ISSUE_TEMPLATE/        # Bug/Question 结构化表单，config.yml 禁用空白 issue
 └── tests/
     ├── test_utils.py          # utils 单元测试
     └── test_splitter.py       # splitter 集成测试（单文件/合并、到人双产出、格式保留）
@@ -81,10 +89,10 @@ excel_splitter/
 | `header_mode` | 表头识别：`auto` / `row`(指定行号) / `keyword`(旧关键词法) | `auto` |
 | `header_row` | header_mode=row 时的 1 基行号 | `1` |
 | `grid_keys` / `id_keys` | header_mode=keyword 时表头需同时含的两类关键词（任一空则不要求） | `[]` |
-| `split_column` | 主拆分列（按列名） | `""` |
-| `selected_values` | 只拆这些主取值；空 = 自动枚举该列所有取值 | `[]` |
+| `split_column` | 拆分字段（按字段名，GUI 里叫「拆分字段」） | `""` |
+| `selected_values` | 只拆这些主取值；空 = 自动枚举该字段所有取值 | `[]` |
 | `to_person` | 是否在汇总之外**附加产出到人**（仅文件夹批量有效） | `false` |
-| `person_column` | 到人按哪列拆 | `""` |
+| `person_column` | 到人按哪个字段拆 | `""` |
 | `person_file_filter` | 只对文件名命中这些关键词的表做到人；空 = 全部 | `[]` |
 | `make_zip` | 批量时按主取值打包 ZIP | `true` |
 | `value_alias_map` | 取值归并 `{规范值:[别名...]}`（旧 position_map 的通用化身） | `{}` |
@@ -138,6 +146,10 @@ excel_splitter/
 - `_detect_columns` 在**子线程**读模板文件（单文件=它本身、文件夹=首个 Excel）、回主线程填主列/到人列下拉。
 - `_collect_config()` 产出 v2.1 字段；配置存到 `user_config.json`；`load_config` 用 FALLBACK 补齐缺键，
   旧版配置不会报错。
+- **匿名反馈入口（v2.3 起）**：模块级常量 `APP_VERSION`、`FEEDBACK_URL`（当前指向 WPS 匿名问卷）。
+  「💬 反馈建议」按钮 `_open_feedback` 打开问卷 + 把版本号复制进剪贴板；`_on_done` 仅在**成功完成**
+  时在日志追加一行反馈引导（失败路径不加，避免像推卸责任）。**不做任何遥测/自动上报**——
+  「数据不出本地」是产品卖点，反馈只能是用户主动点开的外部链接，不要改成程序内嵌表单或自动上传。
 
 **拆分线程 → 主线程通信（v2.4，重要，勿回退）：** 子线程把日志/进度/完成信号 `put` 进
 `self._ui_q`（`queue.Queue`），主线程 `_pump_ui` 每 100ms 用 `after(100, self._pump_ui)` 自我调度、
@@ -181,77 +193,53 @@ v1.0 逐文件独立处理、每个输出文件都新建 Workbook 后 `save` 覆
 
 ---
 
-## 当前阶段任务（打包与部署）
+## 项目当前状态与发版流程
 
-设计/调试阶段与 v2.0 通用化重构（三层界面、跨文件合并、测试/示例/README）已完成。
-剩下交给 Claude Code 的是**打包和部署**。按以下顺序执行，每步做完告诉用户结果：
+初始打包/部署阶段（三层界面时代的 v2.0）早已完成，GitHub 仓库、CI 自动发版、FAQ、Issue 模板、
+匿名反馈入口均已上线。**日常开发不需要手动打包/手动建 Release**——正确流程是：
 
-### 1. 本地验证
+### 1. 本地验证（改动核心逻辑后必做）
 
 ```bash
 pip install -r requirements.txt
-python main.py            # 解释器在本机是 py 启动器：py main.py
-pytest -q                 # 跑测试（需先 pip install -r requirements-dev.txt）
+pip install -r requirements-dev.txt
+py main.py                 # 本机解释器是 py 启动器，见 [[python-launcher-gotcha]]
+py -m py_compile main.py core/*.py gui/*.py
+pytest -q
 ```
 
-确认 GUI 能正常打开、能识别列、能跑通拆分；测试全绿。
-（注意：GUI 需要图形环境，若在无显示器的环境，跳过实际运行，只做语法检查
-`python -m py_compile main.py core/*.py gui/*.py` + `pytest -q`）
+GUI 需要图形环境；无显示器时只做语法检查 + `pytest -q`。
 
-### 2. 用 PyInstaller 打包
-
-**强烈建议直接运行项目里的 `build.bat`**，它已经包含所有必需参数。
-如果手动执行，命令如下（⚠️ 两个参数缺一不可，否则 exe 会崩溃）：
+### 2. 发版（真正会打包发布时）
 
 ```bash
-pyinstaller --onefile --noconsole ^
-  --name "Excel通用拆分工具v2.0" ^
-  --icon app.ico ^
-  --version-file version.txt ^
-  --collect-all customtkinter ^
-  --add-data "config;config" ^
-  main.py
+git add -A && git commit -m "feat: ..."
+git push origin main
+git tag vX.Y.Z && git push origin vX.Y.Z    # push tag 才会触发 CI
 ```
 
-> ⚠️ **两个致命坑（实测确认，务必保留）：**
+推送 `v*` 格式的 tag 会自动触发 `.github/workflows/release.yml`：跑测试 → 语法检查 →
+分别用 `--onedir`（推荐，防杀毒误报）和 `--onefile` 两种模式跑 PyInstaller → 打包 →
+`softprops/action-gh-release` 自动创建 GitHub Release 并上传双产物。**改版本号时
+`version.txt` 里的 `filevers`/`prodvers`/`FileVersion`/`ProductVersion` 四处要同步改**，
+否则 exe 属性里的版本号和 tag 对不上。详细的发版规范、误报处理、CI 排障历史见
+`docs/RELEASING.md`（例如 Windows runner 默认 `pwsh` 不展开 glob、需要给用到 `*.py` 的
+step 加 `shell: bash`；`Rename-Item` 是原地重命名不是移动，后面别再接多余的 `Move-Item`）。
+
+本地手动打包（不走 CI）用 `build.bat`，同样会产出 onedir + onefile 两个产物，两个
+PyInstaller 致命坑仍然成立、缺一不可：
+
+> 1. **`--collect-all customtkinter` 必须有**：customtkinter 依赖 `assets/themes/*.json`
+>    和字体文件，缺了会导致 exe 一启动就崩溃（报错找不到 blue.json 之类）。
+> 2. **`--add-data "config;config"` 必须有**：否则打包后找不到默认配置文件
+>    （Windows 分号 `;` 分隔，Linux/Mac 是冒号 `:`）。
 >
-> 1. **`--collect-all customtkinter` 必须有。** customtkinter 依赖 `assets/themes/*.json`
->    和字体文件，PyInstaller 默认不收集，缺了会导致 exe **一启动就崩溃**
->    （报错找不到 blue.json 之类）。
->
-> 2. **`--add-data "config;config"` 必须有。** 否则打包后找不到默认配置文件。
->    Windows 用分号 `;` 分隔（Linux/Mac 是冒号 `:`）。
->
-> 代码已做路径适配：`gui/app.py` 里用 `sys._MEIPASS` 读打包进去的默认配置，
-> 用户配置 `user_config.json` 存到 exe 所在目录（持久、用户可见可编辑）。
-> **不要把配置读取改回纯相对路径**，那样打包后会失效。
->
-> `app.ico` 和 `version.txt` 已生成（app.ico 是占位图标，用户可替换）。
+> 代码已做路径适配：`gui/app.py` 用 `sys._MEIPASS` 读打包进去的默认配置，用户配置
+> `user_config.json` 存到 exe 所在目录。**不要把配置读取改回纯相对路径**，打包后会失效。
 
-### 3. （可选）代码混淆
+### 3. 代码混淆
 
-本项目目标是**开源**，通常**不需要**混淆。除非用户明确要求，否则跳过这步。
-若要做，注意 PyArmor 和 PyInstaller 的 `--collect-all customtkinter` 需要兼容处理。
-
-### 4. Git 与 GitHub
-
-```bash
-git init
-git add .
-git commit -m "feat: v2.0 通用拆分（按任意列拆分、跨文件合并、三层界面）"
-git branch -M main
-git remote add origin https://github.com/<用户ID>/excel-splitter.git
-git push -u origin main
-```
-
-- **源码推到仓库，打包好的 exe 上传到 GitHub Releases**（不要把 exe 提交进 git 仓库）
-- 提交信息用语义化前缀：`feat:` `fix:` `docs:` 等
-- `.gitignore` 已配置好，会自动忽略 `dist/` `build/` `*.spec` 和用户配置
-
-### 5. 完善 README
-
-- README 里有截图占位，提醒用户**补一张运行截图**（有截图的项目 Star 数明显更高）
-- 把 README 和 Releases 里的下载链接替换成真实地址
+项目目标是开源，**不需要**混淆，除非用户明确要求。
 
 ---
 
