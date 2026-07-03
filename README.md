@@ -121,13 +121,13 @@ pytest -q
 ## 📂 项目结构 / Structure
 
 ```
-excel_splitter/
+excel-router/
 ├── main.py                  # 入口
 ├── config/default_config.json
 ├── core/
 │   ├── splitter.py          # 核心拆分逻辑（表头识别 / 列枚举 / 跨文件合并）
 │   └── utils.py             # 文本清理 / 取值归并 / 文件名净化
-├── gui/app.py               # 三层递进图形界面
+├── gui/app.py               # 三步卡片式图形界面
 ├── examples/make_sample.py  # 样本生成器
 ├── docs/                    # FAQ / 发版手册 / 截图
 └── tests/                   # pytest 测试

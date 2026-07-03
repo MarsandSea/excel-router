@@ -6,7 +6,7 @@
 
 ## 项目是什么
 
-**ExcelRouter**（内部代号/包名仍是 `excel_splitter`）：一个 Windows 桌面工具，把一批 Excel
+**ExcelRouter**：一个 Windows 桌面工具，把一批 Excel
 表格，**按用户指定的任意一个字段的取值**拆分成多个文件（每个取值一个文件），可选再按第二个
 字段做二级拆分（「到人」），并保留原始表头格式。面向不会编程的普通办公人员，v2.1 起界面已改为
 **单屏自适应**（不再是三层分档 Tab），v2.4 后期进一步重构为**三步卡片式**：
@@ -22,9 +22,11 @@
 
 > **品牌名变更（2026-07，v2.2）**：项目对外品牌名从「Excel 通用拆分工具 / Excel Splitter」
 > 改为 **ExcelRouter**。GitHub 仓库已从 `excel-splitter` rename 为 `excel-router`
-> （GitHub 自动保留旧链接 301 跳转）。**代码内部标识符（`excel_splitter` 包名、内部变量名、
-> `core/splitter.py` 文件名等）不需要跟着改**，只改**用户可见的品牌文案**：窗口标题、
+> （GitHub 自动保留旧链接 301 跳转）。当时只改了**用户可见的品牌文案**：窗口标题、
 > `version.txt` 元数据、`build.bat` 产物名、README。旧版本号 v2.1 → 新版本号 v2.2。
+> **2026-07-03 补充**：内部残留的旧代号也已清理——本地项目目录从 `Excel_splitter` 改名为
+> `excel-router`（与 GitHub 仓库名一致），文档目录树同步更新。`core/splitter.py`、`gui/` 等
+> 文件/包名描述的是**功能**（拆分、界面）而非旧品牌，**保持不变**，不要为了品牌一致去改它们。
 >
 > **品牌文案定稿（2026-07-03，v2.4 后）**：采用「品牌名 + 直白副标 + 差异化标语」三层结构，
 > 中文副标从「Excel 业务数据自动分发工具」改为 **「Excel 批量拆分工具」**（新人 3 秒看懂 +
@@ -46,7 +48,7 @@
 ## 目录结构与各文件职责
 
 ```
-excel_splitter/
+excel-router/
 ├── main.py                    # 入口，只有几行，调用 gui.app.run()
 ├── CLAUDE.md                  # 本文件
 ├── README.md                  # 中英双语说明（含实拍截图 docs/screenshot_*.jpg）
