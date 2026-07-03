@@ -1,5 +1,5 @@
 """
-Excel 网格拆分工具 - 文本清理与通用工具
+Excel 智能拆分工具 - 文本清理与通用工具
 Copyright (c) 2026 Abelin
 MIT License
 """

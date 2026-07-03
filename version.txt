@@ -21,7 +21,7 @@ VSVersionInfo(
           u'080404b0',  # 语言 080404b0 = 简体中文 + Unicode
           [
             StringStruct(u'CompanyName', u'Abelin'),
-            StringStruct(u'FileDescription', u'ExcelRouter · Excel 批量拆分工具'),
+            StringStruct(u'FileDescription', u'ExcelRouter · Excel 智能拆分工具'),
             StringStruct(u'FileVersion', u'2.4.0.0'),
             StringStruct(u'InternalName', u'ExcelRouter'),
             StringStruct(u'LegalCopyright', u'Copyright (c) 2026 Abelin. MIT License.'),

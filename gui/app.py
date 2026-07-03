@@ -125,7 +125,7 @@ def save_config(cfg):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title(f"ExcelRouter · Excel 批量拆分工具 v{APP_VERSION}")
+        self.title(f"ExcelRouter · Excel 智能拆分工具 v{APP_VERSION}")
         self.geometry("820x800")
         self.minsize(720, 640)
         self._stop_flag = False
@@ -174,7 +174,7 @@ class App(ctk.CTk):
         brand.pack(anchor="w")
         ctk.CTkLabel(brand, text="ExcelRouter",
                      font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
-        ctk.CTkLabel(brand, text="Excel 批量拆分工具",
+        ctk.CTkLabel(brand, text="Excel 智能拆分工具",
                      font=ctk.CTkFont(size=13, weight="bold"),
                      text_color=("gray25", "gray75")).pack(side="left", padx=(10, 0), pady=(7, 0))
         ctk.CTkLabel(head, text="整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，打包分发",
