@@ -12,15 +12,16 @@
    pytest -q
    python -m py_compile main.py core/*.py gui/*.py
    ```
-2. 更新版本号（三处要一致）：
-   - `gui/app.py` 窗口标题
-   - `version.txt` 的 `filevers` / `prodvers` / `FileVersion` / `ProductVersion`
-   - `build.bat` 里的产物命名（如涉及）
+2. 更新版本号（三处要一致，缺一会导致 exe 属性 / 标题栏 / 文档互相对不上）：
+   - `gui/app.py` 的 `APP_VERSION` 常量（窗口标题、反馈按钮里都引用它）
+   - `version.txt` 的 `filevers` / `prodvers` / `FileVersion` / `ProductVersion` 四个字段
+   - `CLAUDE.md` 开头「当前版本」那一行
 3. Commit、push 到 `main`。
-4. 打 tag 并推送，**这一步会自动触发 CI 发版**：
+4. 打 tag 并推送，**这一步会自动触发 CI 发版**（`vX.X.X` 换成实际版本号，
+   比如 `v2.5.0`；千万别抄本手册里的旧示例，早已被占用会直接 push 失败）：
    ```bash
-   git tag v2.2.0
-   git push origin v2.2.0
+   git tag vX.X.X
+   git push origin vX.X.X
    ```
 5. 去仓库 **Actions** 页看 `Release` 工作流跑完（约 3-5 分钟），跑绿后
    **Releases** 页会自动出现两个产物：

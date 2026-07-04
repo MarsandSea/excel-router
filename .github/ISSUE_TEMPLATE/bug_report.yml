@@ -52,7 +52,7 @@ body:
     id: version
     attributes:
       label: 使用的版本
-      placeholder: 例：v2.2.0（在 Release 下载页文件名或程序标题栏能看到）
+      placeholder: 例：v2.5.0（在 Release 下载页文件名或程序标题栏能看到）
     validations:
       required: true
 

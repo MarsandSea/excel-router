@@ -261,9 +261,10 @@ git tag vX.Y.Z && git push origin vX.Y.Z    # push tag 才会触发 CI
 
 推送 `v*` 格式的 tag 会自动触发 `.github/workflows/release.yml`：跑测试 → 语法检查 →
 分别用 `--onedir`（推荐，防杀毒误报）和 `--onefile` 两种模式跑 PyInstaller → 打包 →
-`softprops/action-gh-release` 自动创建 GitHub Release 并上传双产物。**改版本号时
-`version.txt` 里的 `filevers`/`prodvers`/`FileVersion`/`ProductVersion` 四处要同步改**，
-否则 exe 属性里的版本号和 tag 对不上。详细的发版规范、误报处理、CI 排障历史见
+`softprops/action-gh-release` 自动创建 GitHub Release 并上传双产物。**改版本号时三处要同步**：
+`gui/app.py` 的 `APP_VERSION`、`version.txt` 里的 `filevers`/`prodvers`/`FileVersion`/`ProductVersion`
+四个字段、本文件开头的「当前版本」那一行——否则 exe 属性/标题栏/文档三方对不上。
+详细的发版规范、误报处理、CI 排障历史见
 `docs/RELEASING.md`（例如 Windows runner 默认 `pwsh` 不展开 glob、需要给用到 `*.py` 的
 step 加 `shell: bash`；`Rename-Item` 是原地重命名不是移动，后面别再接多余的 `Move-Item`）。
 
