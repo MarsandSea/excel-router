@@ -30,7 +30,7 @@ Excel 智能拆分工具 - 核心拆分逻辑
 【重要】保留格式时，按【原始行号】从源表读取、加法式写入输出，绝不删行——
 从根本上规避历史上「删行后用错位行号索引」的 bug。
 
-Copyright (c) 2026 Abelin
+Copyright (c) 2026 AbeLin
 MIT License
 """
 

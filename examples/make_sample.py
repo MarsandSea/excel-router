@@ -9,7 +9,7 @@
 
 字段：工号|姓名|所属部门|岗位|区域|销售额(元)|完成率(%)|奖金系数|备注
 
-Copyright (c) 2026 Abelin
+Copyright (c) 2026 AbeLin
 MIT License
 """
 

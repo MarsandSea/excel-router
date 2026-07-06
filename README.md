@@ -6,7 +6,7 @@
 > Batch-split a whole folder of Excel files by any field (department / region / ID),
 > keep original formatting, auto-package for distribution — no coding required.
 >
-> 作者 / Author：Abelin · 觉得好用请点 ⭐ Star！
+> 作者 / Author：AbeLin · 觉得好用请点 ⭐ Star！
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
@@ -151,4 +151,4 @@ excel-router/
 
 ## 👤 作者 / Author
 
-**Abelin** · 有问题欢迎提 [Issue](../../issues)
+**AbeLin** · 有问题欢迎提 [Issue](../../issues)

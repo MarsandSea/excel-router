@@ -12,7 +12,7 @@ ExcelRouter - 图形界面
 拆分在子线程里跑，日志/进度经 queue 由主线程 UI 泵（_pump_ui，每 100ms 批量刷新）
 更新界面——子线程绝不直接碰 Tk 控件（v2.4 机制，勿回退）。
 
-Copyright (c) 2026 Abelin
+Copyright (c) 2026 AbeLin
 MIT License
 """
 
@@ -398,7 +398,7 @@ class App(ctk.CTk):
         self._log_box = ctk.CTkTextbox(parent, state="disabled", wrap="none", height=190)
         # 展开时 grid 到 row=4（_toggle_log 控制），默认收起
 
-        ctk.CTkLabel(parent, text="🔒 数据仅在本机处理，不上传 · 作者 Abelin · MIT 开源",
+        ctk.CTkLabel(parent, text="🔒 数据仅在本机处理，不上传 · 作者 AbeLin · MIT 开源",
                      font=ctk.CTkFont(size=10), text_color="gray").grid(
             row=5, column=0, padx=22, pady=(2, 8), sticky="w")
 

@@ -1,6 +1,6 @@
 """
 Excel 智能拆分工具 - 文本清理与通用工具
-Copyright (c) 2026 Abelin
+Copyright (c) 2026 AbeLin
 MIT License
 """
 
