@@ -31,7 +31,38 @@
    识别列、跑通一次拆分。
 
 CI 配置见 `.github/workflows/release.yml`。它会先跑 `pytest -q` 拦住测试不过的版本，
-测试失败则整个发版流程停止，不会出坏的 Release。
+测试失败则整个发版流程停止，不会出坏的 Release。同一个流程还会**尽力而为**同步一份到
+Gitee（见下一节），Gitee 同步失败不影响本次 GitHub 发版。
+
+---
+
+## 1.5 Gitee 同步（国内下载主路径）
+
+**背景**：GitHub 在国内访问慢、目标用户（普通办公人员）多数没有账号，实测下载转化率
+很低。所以 GitHub 只作为「开源可查」的权威背书，**国内实际下载入口改为 Gitee**
+（`https://gitee.com/Marsandsea/Excelrouter`，国内直连快、免登录直下）。CI 每次发版会
+自动把代码 + tag 镜像过去，并在 Gitee 一并创建同款 Release（同样的 zip + exe 两个产物）。
+
+**首次启用需要在 GitHub 仓库加一个 secret**（`Settings → Secrets and variables →
+Actions → New repository secret`），名字必须是 **`GITEE`**（大小写敏感，workflow 里
+直接引用 `secrets.GITEE`）：
+
+| Secret 名 | 值 |
+|---|---|
+| `GITEE` | Gitee 私人令牌（Gitee 个人设置 → 安全设置 → 私人令牌，新建时勾选仓库/projects 读写权限） |
+
+推送代码走 `https://oauth2:<token>@gitee.com/...`（Gitee HTTPS 认证的固定写法，用户名
+写死 `oauth2`、密码位置放令牌，不需要单独的用户名 secret）；调用 Gitee API v5 创建
+Release/上传附件时，同一个令牌作为 `access_token` 参数传入。
+
+**这一步是尽力而为（`continue-on-error: true`）**：Gitee 挂了、令牌过期、限流等任何
+失败都只会在 Actions 日志里留一条黄色警告，**不会导致本次 GitHub Release 失败**——
+GitHub 始终是权威源，Gitee 只是下游镜像。如果发现 Gitee 侧长期没同步上，去 Actions
+日志里看 `Mirror code + tag to Gitee` / `Create Gitee Release` / `Upload assets to
+Gitee Release` 这三步的报错信息，通常是 token 过期或权限不够。
+
+代码镜像用的是**强制推送**（`git push gitee HEAD:main --force`），因为 Gitee 那边定位
+是纯镜像、不接受人工直接改动；如果有人手动在 Gitee 上提交了内容，下次发版会被覆盖。
 
 ---
 

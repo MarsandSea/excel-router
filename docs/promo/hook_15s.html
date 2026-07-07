@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ExcelRouter · 引流短片 15s</title>
+<!-- Copyright (c) 2026 AbeLin · MIT License -->
+<!--
+  用途：社媒引流短片素材（竖屏 9:16，约 16 秒循环）。
+  四拍：①痛点(按区域拆完还要发到每个人) → ②一次设置(拆分字段+同时拆到人)
+       → ③两级结果树(区域汇总+到人,主秀) → ④收尾 CTA。
+  录制：用任意录屏工具（Win+G / ScreenToGif / OBS）对准手机框录一个循环即可。
+  纯 HTML/CSS/SVG 动画，无外部依赖，双击本文件用浏览器打开即播放。
+  注意：场景/子元素的 animation-name 必须用 .er-loop .sX 这类双类选择器挂载，
+       否则会被 .er-loop .er-scene 的 animation 简写展开出的 animation-name:none 覆盖。
+-->
+<style>
+  html,body{margin:0;height:100%;}
+  body{background:radial-gradient(120% 90% at 50% 0%,#eef4f0,#dfeae3);
+    display:flex;align-items:center;justify-content:center;min-height:100vh;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+  .er-stage{--g1:#35A566;--g2:#1E7F4B;--g3:#12603A;--ink:#0f172a;--mut:#64748b;}
+  .er-phone{position:relative;width:360px;height:640px;border-radius:42px;overflow:hidden;
+    background:linear-gradient(180deg,#f7faf8,#eef4f0);
+    box-shadow:0 24px 64px rgba(7,48,27,.30),inset 0 0 0 7px #0d1512,inset 0 0 0 10px #1c2b24;}
+  .er-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;text-align:center;padding:32px;box-sizing:border-box;}
+  .er-loop .er-scene{animation:16s linear infinite;}
+  /* 场景时间窗（16s = 100%）：①0.2–3.9s ②4.2–7.1s ③7.4–13s ④13.3–16s */
+  .er-loop .s1{animation-name:sc1;} .er-loop .s2{animation-name:sc2;}
+  .er-loop .s3{animation-name:sc3;} .er-loop .s4{animation-name:sc4;}
+  @keyframes sc1{0%,1.5%{opacity:0}5%,21%{opacity:1}24.5%{opacity:0}100%{opacity:0}}
+  @keyframes sc2{0%,26%{opacity:0}29.5%,41%{opacity:1}44.5%{opacity:0}100%{opacity:0}}
+  @keyframes sc3{0%,46%{opacity:0}49%,78%{opacity:1}81.5%{opacity:0}100%{opacity:0}}
+  @keyframes sc4{0%,83%{opacity:0}86.5%,97%{opacity:1}100%{opacity:0}}
+
+  /* ---------- 拍1：痛点 ---------- */
+  .er-kick{font-size:15px;color:var(--mut);letter-spacing:.5px;margin-bottom:12px;font-weight:600}
+  .er-pain{margin-top:20px;font-size:19px;color:var(--ink);font-weight:700;line-height:1.6}
+  .er-pain .rd{color:#b91c1c}
+  .tbl{width:270px;border-radius:12px;overflow:hidden;box-shadow:0 10px 24px rgba(7,48,27,.14);border:1px solid #dfe8e3;background:#fff}
+  .tbl .th{background:linear-gradient(180deg,var(--g1),var(--g2));color:#fff;font-size:13px;font-weight:700;padding:9px}
+  .tbl .tr{display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:#334155;border-top:1px solid #eef2f0}
+  .tbl .tr b{color:var(--ink)}
+  .tbl .tr span:last-child{font-weight:700}
+  .reg-华北{color:#2563eb} .reg-华东{color:#7c3aed} .reg-华南{color:#dc2626} .reg-东北{color:#059669}
+
+  /* ---------- 拍2：一次设置 ---------- */
+  .lg{width:104px;height:104px;filter:drop-shadow(0 12px 22px rgba(7,48,27,.3));transform:scale(.45)}
+  .er-loop .s2 .lg{animation:lgpop 16s linear infinite;}
+  @keyframes lgpop{0%,27%{transform:scale(.45)}30%{transform:scale(1.06)}31.5%,100%{transform:scale(1)}}
+  .chip{margin-top:14px;background:#fff;border:1px solid #d7e5dd;border-radius:999px;padding:10px 18px;font-size:16px;font-weight:700;color:var(--g3);box-shadow:0 8px 20px rgba(7,48,27,.12)}
+  .chip b{color:var(--g2)}
+  .chip .ck{color:var(--g2);font-weight:900;margin-right:4px}
+  .go{margin-top:16px;background:linear-gradient(180deg,var(--g1),var(--g2));color:#fff;font-size:18px;font-weight:800;padding:12px 28px;border-radius:14px;box-shadow:0 12px 26px rgba(18,96,58,.4)}
+  .s2 .cap{margin-top:14px;font-size:14px;color:var(--mut);font-weight:700;letter-spacing:1px}
+
+  /* ---------- 拍3：两级结果树（主秀） ---------- */
+  /* 子元素统一用 tIn 时间线（16s 循环内 51→54% 淡入），靠 animation-delay 依次错峰 */
+  .er-loop .s3 .ti{opacity:0;animation:tIn 16s linear infinite;}
+  @keyframes tIn{0%,51%{opacity:0;transform:translateY(10px)}54%,100%{opacity:1;transform:none}}
+  .chips{display:flex;gap:8px;margin-bottom:16px}
+  .rchip{background:#fff;border:1px solid #d7e5dd;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;color:#475569;box-shadow:0 4px 10px rgba(7,48,27,.08)}
+  .rchip.on{background:linear-gradient(180deg,var(--g1),var(--g2));color:#fff;border-color:transparent}
+  .rchip .z{font-size:10px;opacity:.8;margin-left:3px}
+  .chips .rchip:nth-child(2){animation-delay:.14s}
+  .chips .rchip:nth-child(3){animation-delay:.28s}
+  .chips .rchip:nth-child(4){animation-delay:.42s}
+  .tree{width:278px;background:#fff;border-radius:14px;border:1px solid #e3ece7;box-shadow:0 10px 22px rgba(7,48,27,.14);padding:14px 18px;text-align:left;box-sizing:border-box}
+  .trow{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;color:var(--ink);padding:6px 0}
+  .trow .tag{font-size:10px;background:#e8f4ec;color:var(--g2);padding:2px 8px;border-radius:999px;font-weight:800;white-space:nowrap}
+  .trow.hd{color:var(--g2);font-size:13.5px;margin-top:4px}
+  .trow.sub{margin-left:14px;font-size:13.5px;color:#334155;border-left:2px solid #dcebe2;padding-left:12px}
+  .trow.sub .pp{font-size:12px}
+  .trow.more{margin-left:14px;padding-left:12px;border-left:2px solid #dcebe2;color:var(--g2);font-size:13px;font-weight:800}
+  .tree .trow:nth-child(1){animation-delay:.7s}
+  .tree .trow:nth-child(2){animation-delay:1.05s}
+  .tree .trow:nth-child(3){animation-delay:1.4s}
+  .tree .trow:nth-child(4){animation-delay:1.7s}
+  .tree .trow:nth-child(5){animation-delay:2.0s}
+  .tree .trow:nth-child(6){animation-delay:2.3s}
+  .s3 .cap{margin-top:16px;font-size:15px;color:var(--ink);font-weight:800}
+  .s3 .cap b{color:var(--g2)}
+  .s3 .cap.ti{animation-delay:2.7s}
+
+  /* ---------- 拍4：收尾 CTA ---------- */
+  .pf-num{font-size:64px;font-weight:900;color:var(--g2);line-height:1;letter-spacing:-1px}
+  .pf-sub{margin-top:10px;font-size:20px;font-weight:800;color:var(--ink)}
+  .pf-feat{margin-top:16px;font-size:14.5px;color:var(--mut);font-weight:600;line-height:1.9}
+  .pf-cta{margin-top:20px;display:flex;align-items:center;gap:9px;background:var(--ink);color:#fff;padding:12px 24px;border-radius:14px;font-weight:800;font-size:16.5px}
+  .pf-hand{font-size:18px}
+  .pf-brand{margin-top:12px;font-size:13px;color:var(--mut);font-weight:700}
+  .pf-brand b{color:var(--g2);letter-spacing:.3px}
+  .pf-star{color:#facc15}
+  .pf-logo{width:48px;height:48px;margin-bottom:14px}
+  .er-badge{position:absolute;top:18px;left:0;right:0;text-align:center;font-size:12px;color:var(--mut);font-weight:700;letter-spacing:2px}
+</style>
+</head>
+<body>
+<div class="er-stage">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="erbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#35A566"/><stop offset="1" stop-color="#12603A"/></linearGradient>
+  <g id="erLogo">
+    <rect x="16" y="14" width="224" height="224" rx="50" fill="url(#erbg)"/>
+    <rect x="46" y="84" width="58" height="86" rx="11" fill="#fff"/>
+    <path d="M108 127 H160" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M108 127 H126 Q140 127 140 113 V80 Q140 66 154 66 H160" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M108 127 H126 Q140 127 140 141 V174 Q140 188 154 188 H160" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <rect x="164" y="45" width="43" height="43" rx="10" fill="#fff"/><rect x="164" y="106" width="43" height="43" rx="10" fill="#fff"/><rect x="164" y="167" width="43" height="43" rx="10" fill="#fff"/>
+    <g stroke="#1E7F4B" stroke-width="6.5" stroke-linecap="round">
+      <line x1="57" y1="111" x2="93" y2="111"/><line x1="57" y1="127" x2="93" y2="127"/><line x1="57" y1="143" x2="93" y2="143"/>
+      <line x1="174" y1="66.5" x2="197" y2="66.5"/><line x1="174" y1="127.5" x2="197" y2="127.5"/><line x1="174" y1="188.5" x2="197" y2="188.5"/>
+    </g>
+  </g>
+</defs></svg>
+  <div class="er-phone er-loop">
+    <div class="er-badge">ExcelRouter</div>
+
+    <!-- 拍1：痛点 -->
+    <div class="er-scene s1">
+      <div class="er-kick">月底的活：5 个月 × 4 区域 × 55 人</div>
+      <div class="tbl">
+        <div class="th">员工销售业绩明细表</div>
+        <div class="tr"><span><b>张伟</b> · 销售一部</span><span class="reg-华北">华北</span></div>
+        <div class="tr"><span><b>陈静</b> · 销售一部</span><span class="reg-东北">东北</span></div>
+        <div class="tr"><span><b>黄涛</b> · 销售二部</span><span class="reg-华南">华南</span></div>
+        <div class="tr"><span><b>高博</b> · 销售二部</span><span class="reg-华东">华东</span></div>
+        <div class="tr"><span>…还有 51 人 × 5 个月</span><span>…</span></div>
+      </div>
+      <div class="er-pain">按区域拆完，还要<b>发到每个人</b>？<br><span class="rd">手动 = 一下午 😫</span></div>
+    </div>
+
+    <!-- 拍2：一次设置 -->
+    <div class="er-scene s2">
+      <svg class="lg" viewBox="0 0 256 256"><use href="#erLogo"/></svg>
+      <div class="chip">拆分字段：<b>区域</b></div>
+      <div class="chip"><span class="ck">☑</span> 同时拆到人：<b>姓名</b></div>
+      <div class="go">▶ 开始拆分</div>
+      <div class="cap">一次设置 · 两级拆分</div>
+    </div>
+
+    <!-- 拍3：两级结果树（主秀） -->
+    <div class="er-scene s3">
+      <div class="chips">
+        <div class="rchip on ti">📦 华北<span class="z">.zip</span></div>
+        <div class="rchip ti">华东</div>
+        <div class="rchip ti">华南</div>
+        <div class="rchip ti">东北</div>
+      </div>
+      <div class="tree">
+        <div class="trow ti">📊 华北汇总.xlsx <span class="tag">5 个月已合并</span></div>
+        <div class="trow hd ti">📂 到人 / <span class="tag">每人一份</span></div>
+        <div class="trow sub ti"><span class="pp">👤</span> 张伟.xlsx</div>
+        <div class="trow sub ti"><span class="pp">👤</span> 王芳.xlsx</div>
+        <div class="trow sub ti"><span class="pp">👤</span> 陈静.xlsx</div>
+        <div class="trow more ti">…+52 人，自动生成</div>
+      </div>
+      <div class="cap ti">区域汇总 + 每人一份，<b>一次全出</b></div>
+    </div>
+
+    <!-- 拍4：收尾 CTA -->
+    <div class="er-scene s4">
+      <svg class="pf-logo" viewBox="0 0 256 256"><use href="#erLogo"/></svg>
+      <div class="pf-num">3 秒</div>
+      <div class="pf-sub">从整个文件夹，拆到每一个人</div>
+      <div class="pf-feat">保留原格式 · 跨月自动合并 · 数据不出本机</div>
+      <div class="pf-cta"><span class="pf-hand">👆</span> 主页领取 · 完全免费</div>
+      <div class="pf-brand">全网同名 <b>ExcelRouter</b> · 开源免费可查</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,6 +38,22 @@ jobs:
         id: ver
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Mirror code + tag to Gitee
+        # Best-effort: Gitee sync must never block the official GitHub release.
+        # Requires repo secret GITEE (Gitee personal access token with
+        # repo/projects write scope). Gitee's HTTPS git auth accepts the
+        # literal username "oauth2" with the token as password. Force-push
+        # because Gitee is a pure mirror -- it should never diverge on its own.
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE }}
+        run: |
+          $url = "https://oauth2:${env:GITEE_TOKEN}@gitee.com/Marsandsea/Excelrouter.git"
+          git remote add gitee $url
+          git push gitee HEAD:refs/heads/main --force
+          git push gitee "refs/tags/${{ github.ref_name }}" --force
 
       - name: Build onedir (recommended distribution)
         run: >
@@ -71,3 +89,43 @@ jobs:
             dist/ExcelRouter-v${{ steps.ver.outputs.version }}-win64.zip
             dist/ExcelRouter-v${{ steps.ver.outputs.version }}.exe
           generate_release_notes: true
+
+      - name: Create Gitee Release
+        # Best-effort mirror of the release metadata via Gitee API v5.
+        # If the tag doesn't exist yet on Gitee, target_commitish makes
+        # Gitee create it automatically pointing at this exact commit.
+        id: gitee_release
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE }}
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $body = @{
+            access_token     = $env:GITEE_TOKEN
+            tag_name         = "v$ver"
+            name             = "v$ver"
+            target_commitish = "${{ github.sha }}"
+            body             = "同步自 GitHub Release，完整更新说明见: https://github.com/MarsandSea/excel-router/releases/tag/v$ver"
+          }
+          $resp = Invoke-RestMethod -Uri "https://gitee.com/api/v5/repos/Marsandsea/Excelrouter/releases" -Method Post -Body $body
+          "release_id=$($resp.id)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload assets to Gitee Release
+        if: steps.gitee_release.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE }}
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $releaseId = "${{ steps.gitee_release.outputs.release_id }}"
+          $files = @(
+            "dist/ExcelRouter-v$ver-win64.zip",
+            "dist/ExcelRouter-v$ver.exe"
+          )
+          foreach ($f in $files) {
+            Invoke-RestMethod -Uri "https://gitee.com/api/v5/repos/Marsandsea/Excelrouter/releases/$releaseId/attach_files" `
+              -Method Post `
+              -Form @{ access_token = $env:GITEE_TOKEN; file = Get-Item $f }
+          }

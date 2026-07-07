@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "promo-static-server",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-m", "http.server", "8730", "--directory", "docs/promo"],
+      "port": 8730
+    }
+  ]
+}
