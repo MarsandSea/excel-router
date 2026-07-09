@@ -125,7 +125,10 @@ def save_config(cfg):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title(f"ExcelRouter · Excel 智能拆分工具 v{APP_VERSION}")
+        # 窗口标题只放简名：完整品牌名+副标已经在正文首行显示一次，
+        # 标题栏再写一遍会让人觉得“这句话重复了”。
+        self.title(f"ExcelRouter v{APP_VERSION}")
+        self._set_window_icon()
         self.geometry("820x800")
         self.minsize(720, 640)
         self._stop_flag = False
@@ -150,6 +153,23 @@ class App(ctk.CTk):
         if p and os.path.exists(p):
             self._scan_input()        # 上次的输入还在：启动即自动扫描，打开就能直接开始
         self.after(100, self._pump_ui)
+
+    def _set_window_icon(self):
+        """设置标题栏 / 任务栏 / 最小化时的窗口图标。
+
+        `--icon app.ico`（build.bat / CI）只改 exe 文件本身的图标，运行起来的
+        Tk 窗口图标要靠 iconbitmap() 单独设置，否则标题栏/任务栏还是 Tk 默认
+        羽毛图标——这就是“exe 图标换了，但程序里和最小化时的图标没跟着换”的
+        原因。app.ico 需要被 --add-data 打包进去才能在冻结后找到（见 build.bat）。
+        """
+        for base in (_resource_dir(), _app_dir()):
+            ico = os.path.join(base, "app.ico")
+            if os.path.exists(ico):
+                try:
+                    self.iconbitmap(ico)
+                    return
+                except Exception:
+                    continue
 
     # ── UI 构建 ──────────────────────────────────────────
     def _build_ui(self):
@@ -180,7 +200,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(head, text="整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，打包分发",
                      font=ctk.CTkFont(size=12),
                      text_color=("gray30", "gray70")).pack(anchor="w", pady=(4, 0))
-        ctk.CTkLabel(head, text="保留原格式 · 跨文件自动合并 · 单个文件也能拆",
+        ctk.CTkLabel(head, text="保留原格式 · 跨文件自动合并 · 单个文件也能拆 · 可同时拆到每个人",
                      font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w", pady=(1, 0))
 
     def _step_card(self, parent, row, num, title, padx=8, pady=(0, 10)):
@@ -398,9 +418,13 @@ class App(ctk.CTk):
         self._log_box = ctk.CTkTextbox(parent, state="disabled", wrap="none", height=190)
         # 展开时 grid 到 row=4（_toggle_log 控制），默认收起
 
-        ctk.CTkLabel(parent, text="🔒 数据仅在本机处理，不上传 · 作者 AbeLin · MIT 开源",
-                     font=ctk.CTkFont(size=10), text_color="gray").grid(
-            row=5, column=0, padx=22, pady=(2, 8), sticky="w")
+        # 「数据不出本地」是核心卖点，字号/颜色比作者署名这类次要信息更突出
+        footer = ctk.CTkFrame(parent, fg_color="transparent")
+        footer.grid(row=5, column=0, padx=22, pady=(2, 8), sticky="w")
+        ctk.CTkLabel(footer, text="🔒 数据仅在本机处理，不上传任何服务器",
+                     font=ctk.CTkFont(size=12, weight="bold"), text_color=C_OK).pack(anchor="w")
+        ctk.CTkLabel(footer, text="作者 AbeLin · MIT 开源",
+                     font=ctk.CTkFont(size=10), text_color="gray").pack(anchor="w", pady=(1, 0))
 
     # ── 自适应 / 折叠 ───────────────────────────────────
     def _update_input_ui(self):

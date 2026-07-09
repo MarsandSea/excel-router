@@ -63,6 +63,7 @@ jobs:
           --version-file version.txt
           --collect-all customtkinter
           --add-data "config;config"
+          --add-data "app.ico;."
           main.py
 
       - name: Build onefile (single-file fallback)
@@ -73,6 +74,7 @@ jobs:
           --version-file version.txt
           --collect-all customtkinter
           --add-data "config;config"
+          --add-data "app.ico;."
           main.py
 
       - name: Package onedir as zip

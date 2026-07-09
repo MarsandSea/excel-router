@@ -1,0 +1,32 @@
+name: Mirror to Gitee
+
+# 每次推送到 main 都同步镜像到 Gitee，让 Gitee 仓库跟 GitHub 保持一致
+# （release.yml 里也有一份 Gitee 同步，但那份只在打 tag 发版时触发；
+#  这份负责日常提交，两者互不影响，都是尽力而为、不阻塞 GitHub 侧）。
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mirror code + tags to Gitee
+        # Best-effort: Gitee sync must never block anything on the GitHub side.
+        # Requires repo secret GITEE (Gitee personal access token with
+        # repo/projects write scope). Gitee's HTTPS git auth accepts the
+        # literal username "oauth2" with the token as password. Force-push
+        # because Gitee is a pure mirror -- it should never diverge on its own.
+        continue-on-error: true
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE }}
+        run: |
+          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/Marsandsea/Excelrouter.git"
+          git push gitee HEAD:refs/heads/main --force
+          git push gitee --tags --force

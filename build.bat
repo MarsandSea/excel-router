@@ -14,6 +14,10 @@ REM packaged exe crashes on launch because it cannot find
 REM customtkinter's theme/font assets (e.g. blue.json).
 REM KEY: "--add-data config;config" is mandatory, otherwise the
 REM default config is missing at runtime (Windows uses ';').
+REM KEY: "--add-data app.ico;." is mandatory too. "--icon app.ico"
+REM only stamps the exe FILE icon; the running window's title-bar/
+REM taskbar icon is set at runtime via Tk iconbitmap(), which needs
+REM app.ico bundled as data so gui/app.py can find it after packing.
 REM
 REM This script produces BOTH forms; prefer distributing onedir:
 REM   - onedir : no self-extract at runtime, faster start, far less
@@ -42,6 +46,7 @@ pyinstaller --onedir --noconsole ^
   --version-file version.txt ^
   --collect-all customtkinter ^
   --add-data "config;config" ^
+  --add-data "app.ico;." ^
   main.py
 
 echo.
@@ -52,6 +57,7 @@ pyinstaller --onefile --noconsole ^
   --version-file version.txt ^
   --collect-all customtkinter ^
   --add-data "config;config" ^
+  --add-data "app.ico;." ^
   main.py
 
 echo.

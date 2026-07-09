@@ -1,16 +1,29 @@
+<div align="center">
+
 # ExcelRouter · Excel 智能拆分工具
 
-> 整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，保留原格式，自动打包分发。
-> 自动识别表头、跨文件合并、零编程，面向普通办公人员。
->
-> Batch-split a whole folder of Excel files by any field (department / region / ID),
-> keep original formatting, auto-package for distribution — no coding required.
->
-> 作者 / Author：AbeLin · 觉得好用请点 ⭐ Star！
+**整个文件夹一键拆完：按部门、区域、工号等字段自动拆分，打包分发**
+
+保留原格式 · 跨文件自动合并 · 单个文件也能拆 · 可同时拆到每个人
+
+<br>
+
+[![立即下载](https://img.shields.io/badge/%E2%AC%87%20%E7%AB%8B%E5%8D%B3%E4%B8%8B%E8%BD%BD-%E5%85%8D%E8%B4%B9%20%C2%B7%20%E5%85%8D%E5%AE%89%E8%A3%85%20%C2%B7%20Windows-1E7F4B?style=for-the-badge)](../../releases)
+
+**[📖 3 分钟上手指引](docs/使用指引.md)** · **[❓ 常见问题](docs/FAQ.md)** · [下载哪个文件？](#-直接下载使用无需安装-python--download)
+
+🔒 免费开源（MIT）· 数据仅在本机处理，不上传任何服务器 · 零编程，面向普通办公人员
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
+
+*Batch-split a whole folder of Excel files by any field (department / region / ID), keep original
+formatting, merge across files, optional per-person output — free, open-source, no coding required.*
+
+作者 / Author：**AbeLin** · 觉得好用请点 ⭐ Star！
+
+</div>
 
 ---
 
@@ -18,8 +31,9 @@
 
 - **选一个字段就能拆** —— 自动识别表头，下拉选「拆分字段」，每个取值拆成一个文件，无需预先列出。
   *Pick one column and split — auto-detect header, choose a column, one file per value.*
-- **三层递进，先易后难** —— 简单 / 进阶 / 专家，按使用者熟练度展开选项。
-  *Three difficulty levels (Simple / Advanced / Expert) — progressive disclosure.*
+- **三步卡片式界面** —— ①选表格 ②选字段 ③开始拆分，主按钮固定在底部；不常用的设置收进
+  「▸ 高级设置」默认折叠，界面单屏不用切标签。
+  *Three-step card UI — pick table → pick field → split; advanced options collapse by default.*
 - **跨文件合并** —— 同一个取值出现在多个源文件里，自动**合并到同一个文件**（修掉了旧版互相覆盖的问题）。
   *Cross-file merge — same value across multiple files is merged into one.*
 - **二级拆分（按人分发）** —— 可选再按第二列细分（如 部门 → 姓名），一次产出汇总 + 到人双份结果。
@@ -66,9 +80,16 @@
 
 ## 🧭 三步上手 / Quick Start
 
-1. **选输入文件夹**（放着你要拆的 Excel）和**输出文件夹**。
-2. 点 **「🔄 扫描字段」**，在「拆分字段」下拉里选要按哪个字段拆（如「部门」）。
-3. 点 **「▶ 开始处理」**。完成后每个取值一个文件，自动打开输出目录。
+界面就是三张卡片，从上到下做完即可：
+
+1. **①选择要拆的表格** —— 点「📄 选一个 Excel 文件」或「📁 选整个文件夹（批量拆）」。
+2. **②按哪个字段拆分** —— 点「🔄 扫描字段」，在「拆分字段」下拉里选（如「部门」）；
+   选文件夹时还能勾「同时拆到人」，再单独按第二列（如姓名）产出个人文件。
+3. **③开始拆分** —— 输出位置不用改（自动放进「拆分结果」文件夹），点「▶ 开始拆分」，
+   完成后每个取值一个文件，自动打开输出目录。
+
+不常用的设置（表头识别策略、只拆部分取值、取值归并、跳过值等）收在
+**「▸ 高级设置（一般用不到）」**里，默认折叠，一般流程用不到点开它。
 
 想试一下？仓库自带样本：
 
@@ -76,17 +97,9 @@
 python examples/make_sample.py   # 生成 5 个月份的虚拟员工明细（1月A分公司明细.xlsx … 5月A分公司明细.xlsx）
 ```
 
-用工具的「文件夹」模式，输入选 `examples/`，拆分字段选「所属部门」，开启「到人」，
-开始处理——每个部门的 5 个月数据自动**跨文件合并**，同时产出按员工姓名细分的个人文件，
+用「📁 选整个文件夹」，输入选 `examples/`，拆分字段选「所属部门」，勾选「同时拆到人」，
+点「▶ 开始拆分」——每个部门的 5 个月数据自动**跨文件合并**，同时产出按员工姓名细分的个人文件，
 整体打包成 ZIP 可直接发给对应负责人。
-
-### 难度分档 / Levels
-
-| 档位 | 你能做的事 |
-|------|-----------|
-| **简单** | 选拆分字段 → 开始（按该字段所有取值自动拆） |
-| **进阶** | 加二级拆分列、只拆部分取值、保留格式 / 精确匹配开关 |
-| **专家** | 表头识别策略（自动 / 指定行号 / 关键词）、取值归并映射、跳过值、跨文件合并开关 |
 
 ---
 
